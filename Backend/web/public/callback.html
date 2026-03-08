@@ -4,12 +4,6 @@
     <meta charset="UTF-8">
     <title>Procesando login...</title>
     <style>
-    @font-face {
-        font-family: 'CustomFont';
-        src: url('/font.ttf') format('truetype');
-    }
-    
-    * { font-family: 'CustomFont', sans-serif; }
         body {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
@@ -69,6 +63,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
             const error = urlParams.get('error');
+            
+            // Obtener el programa seleccionado
+            const selectedProgram = sessionStorage.getItem('selectedProgram') || 'temp';
 
             if (error) {
                 showError(`Error de Discord: ${error}`);
@@ -91,6 +88,8 @@
                 const data = await response.json();
 
                 if (data.success) {
+                    // Guardar programa en localStorage
+                    localStorage.setItem('selectedProgram', selectedProgram);
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     window.location.href = '/dashboard';

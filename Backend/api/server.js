@@ -26,9 +26,14 @@ mongoose.connect(process.env.MONGODB_URI)
 // Modelos
 const KeySchema = new mongoose.Schema({
     key: { type: String, unique: true, required: true },
+    program: { 
+        type: String, 
+        enum: ['temp', 'perm'], // 🔥 temp = programa temporal, 💎 perm = programa permanente
+        required: true 
+    },
     type: { 
         type: String, 
-        enum: ['lifetime', '1d', '7d', '30d', '90d', 'yearly'], 
+        enum: ['lifetime', '1d', '7d', '30d', '90d', 'yearly'],
         required: true 
     },
     status: { 
@@ -40,7 +45,7 @@ const KeySchema = new mongoose.Schema({
     ip_addresses: [String],
     created_at: { type: Date, default: Date.now },
     expires_at: { type: Date, default: null },
-    last_login: { type: Date, default: null },
+    last_login: { type: Date, default: Date.now },
     created_by: { type: String, default: 'web' },
     notes: { type: String, default: '' }
 });
@@ -60,6 +65,7 @@ const UserSchema = new mongoose.Schema({
 
 const LogSchema = new mongoose.Schema({
     key: String,
+    program: String,
     action: String,
     ip: String,
     hwid: String,
@@ -100,60 +106,33 @@ const checkRole = (roles) => {
 
 // ========== ENDPOINTS ==========
 
-// Auth Discord con logs detallados
+// Auth Discord
 app.post('/api/auth/discord', async (req, res) => {
     try {
         const { code } = req.body;
         
-        console.log('📥 Recibido código de Discord:', code);
-        console.log('🔑 Client ID:', process.env.DISCORD_CLIENT_ID);
-        console.log('🔑 Redirect URI:', process.env.DISCORD_REDIRECT_URI);
-        
-        if (!code) {
-            console.log('❌ No se recibió código');
-            return res.status(400).json({ error: 'Código no proporcionado' });
-        }
-        
-        // Intercambiar código por token
-        const params = new URLSearchParams({
-            client_id: process.env.DISCORD_CLIENT_ID,
-            client_secret: process.env.DISCORD_CLIENT_SECRET,
-            code: code,
-            grant_type: 'authorization_code',
-            redirect_uri: process.env.DISCORD_REDIRECT_URI,
-            scope: 'identify'
-        });
-        
-        console.log('📤 Enviando a Discord:', params.toString());
-        
         const tokenRes = await axios.post('https://discord.com/api/oauth2/token', 
-            params.toString(), 
-            { 
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                timeout: 10000
+            new URLSearchParams({
+                client_id: process.env.DISCORD_CLIENT_ID,
+                client_secret: process.env.DISCORD_CLIENT_SECRET,
+                code: code,
+                grant_type: 'authorization_code',
+                redirect_uri: process.env.DISCORD_REDIRECT_URI,
+                scope: 'identify'
+            }), { 
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' } 
             }
         );
         
-        console.log('✅ Respuesta de Discord OK:', tokenRes.status);
-        console.log('📦 Token response:', tokenRes.data);
-        
-        const { access_token } = tokenRes.data;
-        
-        // Obtener info del usuario
         const userRes = await axios.get('https://discord.com/api/users/@me', {
-            headers: { Authorization: `Bearer ${access_token}` },
-            timeout: 10000
+            headers: { Authorization: `Bearer ${tokenRes.data.access_token}` }
         });
-        
-        console.log('✅ Usuario de Discord:', userRes.data.username);
         
         const discordUser = userRes.data;
         
-        // Buscar o crear usuario
         let user = await User.findOne({ discord_id: discordUser.id });
         
         if (!user) {
-            console.log('📝 Creando nuevo usuario');
             let role = discordUser.id === process.env.OWNER_DISCORD_ID ? 'owner' : 'user';
             user = await User.create({
                 discord_id: discordUser.id,
@@ -162,25 +141,17 @@ app.post('/api/auth/discord', async (req, res) => {
                 role: role
             });
         } else {
-            console.log('📝 Actualizando usuario existente');
             user.last_login = new Date();
             user.discord_username = discordUser.username;
             user.discord_avatar = discordUser.avatar;
             await user.save();
         }
         
-        // Generar JWT
         const token = jwt.sign(
-            { 
-                discord_id: user.discord_id, 
-                username: user.discord_username, 
-                role: user.role 
-            },
+            { discord_id: user.discord_id, username: user.discord_username, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
-        
-        console.log('✅ Login exitoso para:', user.discord_username);
         
         res.json({
             success: true,
@@ -194,17 +165,8 @@ app.post('/api/auth/discord', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error detallado:', {
-            message: error.message,
-            response: error.response?.data,
-            status: error.response?.status,
-            stack: error.stack
-        });
-        
-        res.status(500).json({ 
-            error: 'Error en autenticación',
-            details: error.message 
-        });
+        console.error('Error:', error);
+        res.status(500).json({ error: 'Error en autenticación' });
     }
 });
 
@@ -222,7 +184,11 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
 // Generar keys (solo owner y admin)
 app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
     try {
-        const { type, count = 1, notes = '' } = req.body;
+        const { program, type, count = 1, notes = '' } = req.body;
+        
+        if (!program || !['temp', 'perm'].includes(program)) {
+            return res.status(400).json({ error: 'Programa no válido (temp/perm)' });
+        }
         
         if (count > 50) return res.status(400).json({ error: 'Máximo 50 keys' });
         
@@ -235,18 +201,21 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
             ).join('-');
             
             let expires_at = null;
-            const expires = new Date(now);
-            switch(type) {
-                case '1d': expires.setDate(expires.getDate() + 1); expires_at = expires; break;
-                case '7d': expires.setDate(expires.getDate() + 7); expires_at = expires; break;
-                case '30d': expires.setDate(expires.getDate() + 30); expires_at = expires; break;
-                case '90d': expires.setDate(expires.getDate() + 90); expires_at = expires; break;
-                case 'yearly': expires.setFullYear(expires.getFullYear() + 1); expires_at = expires; break;
+            if (program === 'temp') {
+                const expires = new Date(now);
+                switch(type) {
+                    case '1d': expires.setDate(expires.getDate() + 1); expires_at = expires; break;
+                    case '7d': expires.setDate(expires.getDate() + 7); expires_at = expires; break;
+                    case '30d': expires.setDate(expires.getDate() + 30); expires_at = expires; break;
+                    case '90d': expires.setDate(expires.getDate() + 90); expires_at = expires; break;
+                    case 'yearly': expires.setFullYear(expires.getFullYear() + 1); expires_at = expires; break;
+                }
             }
             
             await Key.create({
                 key: key,
-                type: type,
+                program: program,
+                type: program === 'temp' ? type : 'lifetime',
                 expires_at: expires_at,
                 created_by: req.user.username,
                 notes: notes
@@ -258,7 +227,7 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
         await Log.create({
             action: 'KEYS_GENERATED',
             user: req.user.username,
-            details: { type, count, keys }
+            details: { program, type, count, keys }
         });
         
         res.json({ success: true, keys });
@@ -272,9 +241,10 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
 // Listar keys
 app.get('/api/keys', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
     try {
-        const { status, type, search, page = 1, limit = 20 } = req.query;
+        const { program, status, type, search, page = 1, limit = 20 } = req.query;
         
         let query = {};
+        if (program) query.program = program;
         if (status) query.status = status;
         if (type) query.type = type;
         if (search) {
@@ -364,6 +334,10 @@ app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), a
             unused: await Key.countDocuments({ status: 'unused' }),
             banned: await Key.countDocuments({ status: 'banned' }),
             expired: await Key.countDocuments({ status: 'expired' }),
+            by_program: {
+                temp: await Key.countDocuments({ program: 'temp' }),
+                perm: await Key.countDocuments({ program: 'perm' })
+            },
             by_type: {
                 lifetime: await Key.countDocuments({ type: 'lifetime' }),
                 '1d': await Key.countDocuments({ type: '1d' }),
@@ -388,7 +362,11 @@ app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), a
 // Verificar licencia (para el cliente)
 app.post('/api/verify', async (req, res) => {
     try {
-        const { key, hwid, ip } = req.body;
+        const { key, hwid, ip, program } = req.body;
+        
+        if (!program || !['temp', 'perm'].includes(program)) {
+            return res.json({ success: false, error: 'Programa no especificado' });
+        }
         
         const license = await Key.findOne({ key: key.toUpperCase() });
         
@@ -396,16 +374,28 @@ app.post('/api/verify', async (req, res) => {
             return res.json({ success: false, error: 'Key inválida' });
         }
         
+        // Verificar que la key es para el programa correcto
+        if (license.program !== program) {
+            const programName = license.program === 'temp' ? 'Temporal' : 'Permanente';
+            return res.json({ 
+                success: false, 
+                error: `Esta key es para el programa ${programName}. No puedes usarla aquí.` 
+            });
+        }
+        
+        // Verificar si está baneada
         if (license.status === 'banned') {
             return res.json({ success: false, error: 'Key baneada' });
         }
         
-        if (license.expires_at && new Date() > license.expires_at) {
+        // Verificar expiración (solo para programa temp)
+        if (license.program === 'temp' && license.expires_at && new Date() > license.expires_at) {
             license.status = 'expired';
             await license.save();
             return res.json({ success: false, error: 'Key expirada' });
         }
         
+        // Primera activación
         if (!license.hwid) {
             license.hwid = hwid;
             license.status = 'active';
@@ -413,30 +403,35 @@ app.post('/api/verify', async (req, res) => {
             if (ip) license.ip_addresses.push(ip);
             await license.save();
             
-            await Log.create({ key, action: 'FIRST_ACTIVATION', ip, hwid });
+            await Log.create({ key, program: license.program, action: 'FIRST_ACTIVATION', ip, hwid });
             
             return res.json({ 
                 success: true, 
+                program: license.program,
                 type: license.type,
-                expires_at: license.expires_at
+                expires_at: license.expires_at,
+                first_activation: true
             });
         }
         
+        // Verificar HWID
         if (license.hwid !== hwid) {
-            await Log.create({ key, action: 'HWID_MISMATCH', ip, hwid });
+            await Log.create({ key, program: license.program, action: 'HWID_MISMATCH', ip, hwid });
             return res.json({ success: false, error: 'HWID no coincide' });
         }
         
+        // Todo correcto
         license.last_login = new Date();
         if (ip && !license.ip_addresses.includes(ip)) {
             license.ip_addresses.push(ip);
         }
         await license.save();
         
-        await Log.create({ key, action: 'LOGIN_SUCCESS', ip, hwid });
+        await Log.create({ key, program: license.program, action: 'LOGIN_SUCCESS', ip, hwid });
         
         res.json({ 
             success: true, 
+            program: license.program,
             type: license.type,
             expires_at: license.expires_at
         });

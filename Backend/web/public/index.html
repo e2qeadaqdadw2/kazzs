@@ -33,6 +33,47 @@
             max-width: 500px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.1);
             text-align: center;
+            position: relative;
+        }
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 8px;
+            background: rgba(255,255,255,0.9);
+            padding: 8px 12px;
+            border-radius: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .lang-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+            opacity: 0.6;
+        }
+        .lang-btn img {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .lang-btn.active {
+            opacity: 1;
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px #667eea;
+        }
+        .lang-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
         }
         .logo h1 { 
             font-size: 2.5em; 
@@ -43,6 +84,39 @@
             -webkit-text-fill-color: transparent;
         }
         .logo p { color: #666; margin-bottom: 30px; }
+        .program-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        .program-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .program-btn.temp {
+            color: #ffa502;
+            border-color: #ffa502;
+        }
+        .program-btn.temp.active {
+            background: #ffa502;
+            color: white;
+        }
+        .program-btn.perm {
+            color: #00d25b;
+            border-color: #00d25b;
+        }
+        .program-btn.perm.active {
+            background: #00d25b;
+            color: white;
+        }
         .discord-btn {
             width: 100%;
             padding: 15px;
@@ -75,28 +149,149 @@
 </head>
 <body>
     <div class="login-card">
+        <div class="language-selector">
+            <button class="lang-btn active" onclick="setLanguage('es')" title="Español">
+                <img src="https://em-content.zobj.net/source/apple/237/flag-for-spain_1f1ea-1f1f8.png" alt="ES">
+            </button>
+            <button class="lang-btn" onclick="setLanguage('en')" title="English">
+                <img src="https://em-content.zobj.net/source/apple/237/flag-for-england_1f3f4-e0067-e0062-e0065-e006e-e0067-e007f.png" alt="EN">
+            </button>
+            <button class="lang-btn" onclick="setLanguage('it')" title="Italiano">
+                <img src="https://em-content.zobj.net/source/apple/237/flag-for-italy_1f1ee-1f1f9.png" alt="IT">
+            </button>
+            <button class="lang-btn" onclick="setLanguage('de')" title="Deutsch">
+                <img src="https://em-content.zobj.net/source/apple/237/flag-for-germany_1f1e9-1f1ea.png" alt="DE">
+            </button>
+            <button class="lang-btn" onclick="setLanguage('ru')" title="Русский">
+                <img src="https://em-content.zobj.net/source/apple/237/flag-for-russia_1f1f7-1f1fa.png" alt="RU">
+            </button>
+        </div>
+
         <div class="logo">
             <h1>🌸 PinkAuth</h1>
-            <p>Sistema de Autenticación</p>
+            <p id="subtitle">Sistema de Autenticación</p>
+        </div>
+
+        <div class="program-selector">
+            <button class="program-btn temp active" onclick="selectProgram('temp')" id="btnTemp">
+                🔥 <span id="tempText">Temporal</span>
+            </button>
+            <button class="program-btn perm" onclick="selectProgram('perm')" id="btnPerm">
+                💎 <span id="permText">Permanente</span>
+            </button>
         </div>
         
         <button id="loginBtn" class="discord-btn">
             <img src="https://cdn.prod.website-files.com/6257adef93867e50d84e30e4/663e6e20c6e687f3f417cff8_Discord%20Logo%20-%20Small.svg" alt="Discord">
-            Iniciar sesión con Discord
+            <span id="loginText">Iniciar sesión con Discord</span>
         </button>
         
         <div class="features">
-            <div class="feature"><span>🔐</span><h3>Seguro</h3><p>Autenticación con Discord</p></div>
-            <div class="feature"><span>⚡</span><h3>Rápido</h3><p>Gestión en tiempo real</p></div>
-            <div class="feature"><span>📊</span><h3>Estadísticas</h3><p>Control total de keys</p></div>
+            <div class="feature"><span>🔐</span><h3 id="feature1">Seguro</h3><p id="feature1desc">Autenticación con Discord</p></div>
+            <div class="feature"><span>⚡</span><h3 id="feature2">Rápido</h3><p id="feature2desc">Gestión en tiempo real</p></div>
+            <div class="feature"><span>📊</span><h3 id="feature3">Estadísticas</h3><p id="feature3desc">Control total de keys</p></div>
         </div>
     </div>
 
     <script>
         const CLIENT_ID = '1480260597902999653';
-        const REDIRECT_URI = encodeURIComponent('https://kazzs-production-8642.up.railway.app/callback');
+        let selectedProgram = 'temp';
+        let currentLanguage = 'es';
+
+        // Traducciones
+        const translations = {
+            es: {
+                subtitle: 'Sistema de Autenticación',
+                temp: 'Temporal',
+                perm: 'Permanente',
+                login: 'Iniciar sesión con Discord',
+                feature1: 'Seguro',
+                feature1desc: 'Autenticación con Discord',
+                feature2: 'Rápido',
+                feature2desc: 'Gestión en tiempo real',
+                feature3: 'Estadísticas',
+                feature3desc: 'Control total de keys'
+            },
+            en: {
+                subtitle: 'Authentication System',
+                temp: 'Temporary',
+                perm: 'Permanent',
+                login: 'Login with Discord',
+                feature1: 'Secure',
+                feature1desc: 'Discord Authentication',
+                feature2: 'Fast',
+                feature2desc: 'Real-time management',
+                feature3: 'Statistics',
+                feature3desc: 'Full key control'
+            },
+            it: {
+                subtitle: 'Sistema di Autenticazione',
+                temp: 'Temporaneo',
+                perm: 'Permanente',
+                login: 'Accedi con Discord',
+                feature1: 'Sicuro',
+                feature1desc: 'Autenticazione Discord',
+                feature2: 'Veloce',
+                feature2desc: 'Gestione in tempo reale',
+                feature3: 'Statistiche',
+                feature3desc: 'Controllo totale chiavi'
+            },
+            de: {
+                subtitle: 'Authentifizierungssystem',
+                temp: 'Temporär',
+                perm: 'Permanent',
+                login: 'Mit Discord anmelden',
+                feature1: 'Sicher',
+                feature1desc: 'Discord-Authentifizierung',
+                feature2: 'Schnell',
+                feature2desc: 'Echtzeit-Verwaltung',
+                feature3: 'Statistiken',
+                feature3desc: 'Volle Schlüsselkontrolle'
+            },
+            ru: {
+                subtitle: 'Система аутентификации',
+                temp: 'Временный',
+                perm: 'Постоянный',
+                login: 'Войти через Discord',
+                feature1: 'Безопасно',
+                feature1desc: 'Аутентификация Discord',
+                feature2: 'Быстро',
+                feature2desc: 'Управление в реальном времени',
+                feature3: 'Статистика',
+                feature3desc: 'Полный контроль ключей'
+            }
+        };
+
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-btn').forEach(btn => btn.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            const t = translations[lang];
+            document.getElementById('subtitle').textContent = t.subtitle;
+            document.getElementById('tempText').textContent = t.temp;
+            document.getElementById('permText').textContent = t.perm;
+            document.getElementById('loginText').textContent = t.login;
+            document.getElementById('feature1').textContent = t.feature1;
+            document.getElementById('feature1desc').textContent = t.feature1desc;
+            document.getElementById('feature2').textContent = t.feature2;
+            document.getElementById('feature2desc').textContent = t.feature2desc;
+            document.getElementById('feature3').textContent = t.feature3;
+            document.getElementById('feature3desc').textContent = t.feature3desc;
+        }
+
+        function selectProgram(program) {
+            selectedProgram = program;
+            document.getElementById('btnTemp').classList.remove('active');
+            document.getElementById('btnPerm').classList.remove('active');
+            document.getElementById(`btn${program === 'temp' ? 'Temp' : 'Perm'}`).classList.add('active');
+        }
         
         document.getElementById('loginBtn').addEventListener('click', () => {
+            // Guardar programa seleccionado en sessionStorage para usarlo en callback
+            sessionStorage.setItem('selectedProgram', selectedProgram);
+            
+            const REDIRECT_URI = encodeURIComponent('https://kazzs-production-8642.up.railway.app/callback');
             const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=identify`;
             window.location.href = discordUrl;
         });
