@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PinkAuth</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+        }
+        .dashboard {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 280px;
+            background: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            position: fixed;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 30px 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .sidebar-header h2 { color: #667eea; font-size: 1.5em; }
+        .user-info {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .user-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+        }
+        .user-info p { font-weight: 600; margin-bottom: 5px; }
+        .role-badge {
+            font-size: 0.8em;
+            padding: 3px 10px;
+            border-radius: 15px;
+            background: #667eea;
+            color: white;
+        }
+        .nav-links {
+            flex: 1;
+            padding: 20px 0;
+            list-style: none;
+        }
+        .nav-links li {
+            padding: 15px 25px;
+            margin: 5px 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .nav-links li:hover { background: #f0f0f0; }
+        .nav-links li.active {
+            background: #667eea;
+            color: white;
+        }
+        .admin-only { display: none; }
+        .admin-only.visible { display: flex; }
+        .logout-btn {
+            margin: 20px;
+            padding: 15px;
+            background: none;
+            border: 2px solid #ff4757;
+            color: #ff4757;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        .logout-btn:hover {
+            background: #ff4757;
+            color: white;
+        }
+        .content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        .stat-card p {
+            font-size: 2em;
+            font-weight: 600;
+            color: #333;
+        }
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .chart-card {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .chart {
+            height: 300px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 10px;
+        }
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .filters input, .filters select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            flex: 1;
+        }
+        .filters button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .keys-table {
+            width: 100%;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .keys-table th, .keys-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .keys-table th { background: #f8f9fa; font-weight: 600; }
+        .keys-table tr:hover { background: #f5f5f5; }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-banned { background: #f8d7da; color: #721c24; }
+        .status-unused { background: #fff3cd; color: #856404; }
+        .status-expired { background: #e2e3e5; color: #383d41; }
+        .action-btn {
+            padding: 5px 10px;
+            margin: 0 2px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .action-btn.ban { background: #ff4757; color: white; }
+        .action-btn.unban { background: #00d25b; color: white; }
+        .action-btn.reset { background: #ffa502; color: white; }
+        .generate-form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            margin: 20px 0;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .generated-keys {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+        .generated-keys textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .loading { text-align: center; padding: 50px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <nav class="sidebar">
+            <div class="sidebar-header"><h2>🌸 PinkAuth</h2></div>
+            <div class="user-info">
+                <img id="userAvatar" src="" alt="Avatar">
+                <div>
+                    <p id="userName"></p>
+                    <span id="userRole" class="role-badge"></span>
+                </div>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-page="dashboard"><span>📊</span> Dashboard</li>
+                <li data-page="keys"><span>🔑</span> Keys</li>
+                <li data-page="generate" class="admin-only"><span>✨</span> Generar Keys</li>
+            </ul>
+            <button class="logout-btn" onclick="logout()"><span>🚪</span> Cerrar sesión</button>
+        </nav>
+        
+        <main class="content">
+            <div id="dashboard-page" class="page active">
+                <h1>Dashboard</h1>
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>Total Keys</h3><p id="totalKeys">-</p></div>
+                    <div class="stat-card"><h3>Keys Activas</h3><p id="activeKeys">-</p></div>
+                    <div class="stat-card"><h3>Activaciones Hoy</h3><p id="activationsToday">-</p></div>
+                    <div class="stat-card"><h3>Keys Generadas Hoy</h3><p id="keysToday">-</p></div>
+                </div>
+            </div>
+            
+            <div id="keys-page" class="page">
+                <h1>Gestión de Keys</h1>
+                <div class="filters">
+                    <input type="text" id="keySearch" placeholder="Buscar key o HWID...">
+                    <select id="statusFilter">
+                        <option value="">Todos</option>
+                        <option value="active">Activas</option>
+                        <option value="unused">Sin usar</option>
+                        <option value="banned">Baneadas</option>
+                        <option value="expired">Expiradas</option>
+                    </select>
+                    <button onclick="loadKeys()">Filtrar</button>
+                </div>
+                <table class="keys-table">
+                    <thead><tr><th>Key</th><th>Tipo</th><th>Estado</th><th>HWID</th><th>Acciones</th></tr></thead>
+                    <tbody id="keysTableBody"><tr><td colspan="5" class="loading">Cargando keys...</td></tr></tbody>
+                </table>
+            </div>
+            
+            <div id="generate-page" class="page">
+                <h1>Generar Keys</h1>
+                <div class="generate-form">
+                    <div class="form-group">
+                        <label>Tipo:</label>
+                        <select id="generateType">
+                            <option value="lifetime">Lifetime</option>
+                            <option value="1d">1 Día</option>
+                            <option value="7d">7 Días</option>
+                            <option value="30d">30 Días</option>
+                            <option value="90d">90 Días</option>
+                            <option value="yearly">Anual</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cantidad:</label>
+                        <input type="number" id="generateCount" min="1" max="50" value="1">
+                    </div>
+                    <button onclick="generateKeys()" class="btn-primary">Generar Keys</button>
+                </div>
+                <div id="generatedKeys" class="generated-keys" style="display:none;">
+                    <h3>Keys Generadas:</h3>
+                    <textarea id="keysOutput" readonly rows="5"></textarea>
+                    <button onclick="copyKeys()">Copiar Keys</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000';
+        let currentUser = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            if (!token) window.location.href = '/';
+            else loadUserData();
+        });
+
+        async function loadUserData() {
+            try {
+                const res = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const user = await res.json();
+                currentUser = user;
+                
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').src = user.avatar ? 
+                    `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : 
+                    'https://cdn.discordapp.com/embed/avatars/0.png';
+                document.getElementById('userRole').textContent = user.role;
+                
+                if (user.role === 'owner' || user.role === 'admin') {
+                    document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
+                }
+                
+                setupNavigation();
+                loadDashboard();
+                
+            } catch { logout(); }
+        }
+
+        function setupNavigation() {
+            document.querySelectorAll('.nav-links li').forEach(link => {
+                link.addEventListener('click', () => {
+                    document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                    link.classList.add('active');
+                    document.getElementById(`${link.dataset.page}-page`).classList.add('active');
+                    if (link.dataset.page === 'dashboard') loadDashboard();
+                    if (link.dataset.page === 'keys') loadKeys();
+                });
+            });
+        }
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch(`${API_URL}/api/stats`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const stats = await res.json();
+                document.getElementById('totalKeys').textContent = stats.total;
+                document.getElementById('activeKeys').textContent = stats.active;
+                document.getElementById('activationsToday').textContent = stats.activations_today;
+            } catch (error) { console.error(error); }
+        }
+
+        async function loadKeys() {
+            const search = document.getElementById('keySearch').value;
+            const status = document.getElementById('statusFilter').value;
+            
+            try {
+                const url = new URL(`${API_URL}/api/keys`);
+                if (search) url.searchParams.append('search', search);
+                if (status) url.searchParams.append('status', status);
+                
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                const data = await res.json();
+                
+                document.getElementById('keysTableBody').innerHTML = data.keys.map(key => `
+                    <tr>
+                        <td><code>${key.key}</code></td>
+                        <td>${key.type}</td>
+                        <td><span class="status-badge status-${key.status}">${key.status}</span></td>
+                        <td><code>${key.hwid || '-'}</code></td>
+                        <td>
+                            ${key.status !== 'banned' ? 
+                                `<button class="action-btn ban" onclick="banKey('${key.key}')">🔨</button>` :
+                                `<button class="action-btn unban" onclick="unbanKey('${key.key}')">✅</button>`
+                            }
+                            ${key.hwid ? 
+                                `<button class="action-btn reset" onclick="resetHwid('${key.key}')">🔄</button>` : ''
+                            }
+                        </td>
+                    </tr>
+                `).join('');
+                
+            } catch (error) { console.error(error); }
+        }
+
+        async function generateKeys() {
+            const type = document.getElementById('generateType').value;
+            const count = document.getElementById('generateCount').value;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/keys/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ type, count })
+                });
+                
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('keysOutput').value = data.keys.join('\n');
+                    document.getElementById('generatedKeys').style.display = 'block';
+                }
+                
+            } catch (error) { alert('Error generando keys'); }
+        }
+
+        async function banKey(key) {
+            if (!confirm(`¿Banear key ${key}?`)) return;
+            try {
+                await fetch(`${API_URL}/api/keys/${key}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ status: 'banned' })
+                });
+                loadKeys();
+            } catch { alert('Error'); }
+        }
+
+        async function unbanKey(key) {
+            if (!confirm(`¿Desbanear key ${key}?`)) return;
+            try {
+                await fetch(`${API_URL}/api/keys/${key}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({ status: 'unused' })
+                });
+                loadKeys();
+            } catch { alert('Error'); }
+        }
+
+        async function resetHwid(key) {
+            if (!confirm(`¿Resetear HWID de key ${key}?`)) return;
+            try {
+                await fetch(`${API_URL}/api/keys/${key}/reset-hwid`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+                loadKeys();
+            } catch { alert('Error'); }
+        }
+
+        function copyKeys() {
+            document.getElementById('keysOutput').select();
+            document.execCommand('copy');
+            alert('Keys copiadas');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

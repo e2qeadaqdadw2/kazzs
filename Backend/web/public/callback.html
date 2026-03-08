@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Procesando login...</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .loader {
+            text-align: center;
+            color: white;
+            max-width: 600px;
+            padding: 20px;
+        }
+        .spinner {
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 5px solid white;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        .log {
+            background: rgba(0,0,0,0.5);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .error { background: rgba(255,0,0,0.3); }
+        .success { background: rgba(0,255,0,0.3); }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="loader">
+        <h2 id="status">Iniciando sesión...</h2>
+        <div class="spinner"></div>
+        <div id="logContainer" class="log"></div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const log = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.style.margin = '5px 0';
+            entry.style.padding = '5px';
+            entry.style.borderLeft = type === 'error' ? '3px solid #ff4757' : 
+                                    type === 'success' ? '3px solid #00d25b' : '3px solid #667eea';
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        async function main() {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const error = urlParams.get('error');
+                
+                addLog(`URL completa: ${window.location.href}`);
+                addLog(`Código recibido: ${code || 'ninguno'}`);
+                addLog(`Error: ${error || 'ninguno'}`);
+                
+                if (error) {
+                    addLog(`Error de Discord: ${error}`, 'error');
+                    addLog(`Descripción: ${urlParams.get('error_description')}`, 'error');
+                    setTimeout(() => window.location.href = '/', 5000);
+                    return;
+                }
+                
+                if (!code) {
+                    addLog('No se recibió código de autorización', 'error');
+                    setTimeout(() => window.location.href = '/', 3000);
+                    return;
+                }
+                
+                addLog('Enviando código a la API...');
+                
+                const response = await fetch('http://localhost:3000/api/auth/discord', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+                
+                addLog(`Respuesta status: ${response.status}`);
+                
+                const data = await response.json();
+                addLog(`Respuesta data: ${JSON.stringify(data)}`);
+                
+                if (data.success) {
+                    addLog('✅ Login exitoso!', 'success');
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    addLog('Token guardado, redirigiendo...');
+                    setTimeout(() => window.location.href = '/dashboard', 2000);
+                } else {
+                    addLog(`❌ Error: ${data.error || 'Error desconocido'}`, 'error');
+                    setTimeout(() => window.location.href = '/', 5000);
+                }
+                
+            } catch (err) {
+                addLog(`❌ Error crítico: ${err.message}`, 'error');
+                console.error(err);
+                setTimeout(() => window.location.href = '/', 5000);
+            }
+        }
+        
+        main();
+    </script>
+</body>
+</html>

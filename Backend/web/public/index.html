@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PinkAuth - Sistema de Autenticación</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .logo h1 { font-size: 2.5em; color: #333; margin-bottom: 10px; }
+        .logo p { color: #666; margin-bottom: 30px; }
+        .discord-btn {
+            width: 100%;
+            padding: 15px;
+            background: #5865F2;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: background 0.3s;
+        }
+        .discord-btn:hover { background: #4752C4; }
+        .discord-btn img { width: 24px; height: 24px; }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 40px;
+        }
+        .feature { text-align: center; }
+        .feature span { font-size: 2em; display: block; margin-bottom: 10px; }
+        .feature h3 { font-size: 1em; margin-bottom: 5px; color: #333; }
+        .feature p { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <h1>🌸 PinkAuth</h1>
+            <p>Sistema de Autenticación</p>
+        </div>
+        
+        <button id="loginBtn" class="discord-btn">
+            <img src="https://cdn.discordapp.com/attachments/1479446114188136528/1480267854325485690/discord-logo-transparent-gray-3-removebg-preview.png?ex=69af0e5e&is=69adbcde&hm=aa6da752b8750810de1e50b223adcc9e190a2ca312300af8469c6bf8b97ad1bb&" alt="Discord">
+            Iniciar sesión con Discord
+        </button>
+        
+        <div class="features">
+            <div class="feature"><span>🔐</span><h3>Seguro</h3><p>Autenticación con Discord</p></div>
+            <div class="feature"><span>⚡</span><h3>Rápido</h3><p>Gestión en tiempo real</p></div>
+            <div class="feature"><span>📊</span><h3>Estadísticas</h3><p>Control total de keys</p></div>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '1480260597902999653';
+        const REDIRECT_URI = encodeURIComponent('http://localhost:5000/callback');
+        
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=identify`;
+            window.location.href = discordUrl;
+        });
+    </script>
+</body>
+</html>
