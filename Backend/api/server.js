@@ -11,41 +11,48 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100
 });
 app.use('/api/', limiter);
 
-// Conectar a MongoDB
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('✅ Conectado a MongoDB'))
     .catch(err => console.error('❌ Error MongoDB:', err));
 
-// Modelos
+// ========== MODELO ACTUALIZADO ==========
 const KeySchema = new mongoose.Schema({
     key: { type: String, unique: true, required: true },
     program: { 
         type: String, 
-        enum: ['temp', 'perm'], // 🔥 temp = programa temporal, 💎 perm = programa permanente
+        enum: ['temp', 'perm'],
         required: true 
     },
-    type: { 
-        type: String, 
-        enum: ['lifetime', '1d', '7d', '30d', '90d', 'yearly'],
-        required: true 
+    category: { 
+        type: String,
+        required: true,
+        enum: {
+            'temp': ['1d', '7d', '30d', '90d', '365d', 'lifetime'],
+            'perm': ['single', 'lifetime']
+        }
+    },
+    subcategory: { 
+        type: String,
+        default: null
     },
     status: { 
         type: String, 
-        enum: ['active', 'banned', 'expired', 'unused'], 
+        enum: ['active', 'banned', 'expired', 'unused', 'used'], 
         default: 'unused' 
     },
     hwid: { type: String, default: null },
     ip_addresses: [String],
     created_at: { type: Date, default: Date.now },
     expires_at: { type: Date, default: null },
-    last_login: { type: Date, default: Date.now },
+    last_login: { type: Date, default: null },
+    usage_count: { type: Number, default: 0 },
+    max_uses: { type: Number, default: null },
     created_by: { type: String, default: 'web' },
     notes: { type: String, default: '' }
 });
@@ -90,7 +97,6 @@ const verifyToken = (req, res, next) => {
     }
 };
 
-// Verificar rol
 const checkRole = (roles) => {
     return async (req, res, next) => {
         const user = await User.findOne({ discord_id: req.user.discord_id });
@@ -170,7 +176,6 @@ app.post('/api/auth/discord', async (req, res) => {
     }
 });
 
-// Verificar sesión
 app.get('/api/auth/me', verifyToken, async (req, res) => {
     const user = await User.findOne({ discord_id: req.user.discord_id });
     res.json({
@@ -181,13 +186,27 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
     });
 });
 
-// Generar keys (solo owner y admin)
+// ========== GENERAR KEYS ACTUALIZADO ==========
 app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
     try {
-        const { program, type, count = 1, notes = '' } = req.body;
+        const { program, category, subcategory, count = 1, notes = '' } = req.body;
         
         if (!program || !['temp', 'perm'].includes(program)) {
-            return res.status(400).json({ error: 'Programa no válido (temp/perm)' });
+            return res.status(400).json({ error: 'Programa no válido' });
+        }
+        
+        if (program === 'temp') {
+            const validTemp = ['1d', '7d', '30d', '90d', '365d', 'lifetime'];
+            if (!validTemp.includes(category)) {
+                return res.status(400).json({ error: 'Categoría temporal no válida' });
+            }
+        }
+        
+        if (program === 'perm') {
+            const validPerm = ['single', 'lifetime'];
+            if (!validPerm.includes(category)) {
+                return res.status(400).json({ error: 'Categoría permanente no válida' });
+            }
         }
         
         if (count > 50) return res.status(400).json({ error: 'Máximo 50 keys' });
@@ -201,22 +220,31 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
             ).join('-');
             
             let expires_at = null;
-            if (program === 'temp') {
+            let max_uses = null;
+            
+            if (program === 'temp' && category !== 'lifetime') {
                 const expires = new Date(now);
-                switch(type) {
-                    case '1d': expires.setDate(expires.getDate() + 1); expires_at = expires; break;
-                    case '7d': expires.setDate(expires.getDate() + 7); expires_at = expires; break;
-                    case '30d': expires.setDate(expires.getDate() + 30); expires_at = expires; break;
-                    case '90d': expires.setDate(expires.getDate() + 90); expires_at = expires; break;
-                    case 'yearly': expires.setFullYear(expires.getFullYear() + 1); expires_at = expires; break;
+                switch(category) {
+                    case '1d': expires.setDate(expires.getDate() + 1); break;
+                    case '7d': expires.setDate(expires.getDate() + 7); break;
+                    case '30d': expires.setDate(expires.getDate() + 30); break;
+                    case '90d': expires.setDate(expires.getDate() + 90); break;
+                    case '365d': expires.setFullYear(expires.getFullYear() + 1); break;
                 }
+                expires_at = expires;
+            }
+            
+            if (program === 'perm' && category === 'single') {
+                max_uses = 1;
             }
             
             await Key.create({
                 key: key,
                 program: program,
-                type: program === 'temp' ? type : 'lifetime',
+                category: category,
+                subcategory: subcategory,
                 expires_at: expires_at,
+                max_uses: max_uses,
                 created_by: req.user.username,
                 notes: notes
             });
@@ -227,7 +255,7 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
         await Log.create({
             action: 'KEYS_GENERATED',
             user: req.user.username,
-            details: { program, type, count, keys }
+            details: { program, category, subcategory, count, keys }
         });
         
         res.json({ success: true, keys });
@@ -238,15 +266,15 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
     }
 });
 
-// Listar keys
+// ========== LISTAR KEYS ACTUALIZADO ==========
 app.get('/api/keys', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
     try {
-        const { program, status, type, search, page = 1, limit = 20 } = req.query;
+        const { program, category, status, search, page = 1, limit = 20 } = req.query;
         
         let query = {};
         if (program) query.program = program;
+        if (category) query.category = category;
         if (status) query.status = status;
-        if (type) query.type = type;
         if (search) {
             query.$or = [
                 { key: { $regex: search, $options: 'i' } },
@@ -277,7 +305,168 @@ app.get('/api/keys', verifyToken, checkRole(['owner', 'admin', 'moderator']), as
     }
 });
 
-// Actualizar key
+// ========== VERIFICAR LICENCIA ACTUALIZADO ==========
+app.post('/api/verify', async (req, res) => {
+    try {
+        const { key, hwid, ip, program } = req.body;
+        
+        if (!program || !['temp', 'perm'].includes(program)) {
+            return res.json({ success: false, error: 'Programa no especificado' });
+        }
+        
+        const license = await Key.findOne({ key: key.toUpperCase() });
+        
+        if (!license) {
+            return res.json({ success: false, error: 'Key inválida' });
+        }
+        
+        // Verificar programa
+        if (license.program !== program) {
+            const programName = license.program === 'temp' ? 'Temporal' : 'Permanente';
+            return res.json({ 
+                success: false, 
+                error: `Esta key es para el programa ${programName}` 
+            });
+        }
+        
+        // Verificar estado
+        if (license.status === 'banned') {
+            return res.json({ success: false, error: 'Key baneada' });
+        }
+        
+        // Verificar expiración (para temporales no-lifetime)
+        if (license.program === 'temp' && license.category !== 'lifetime') {
+            if (license.expires_at && new Date() > license.expires_at) {
+                license.status = 'expired';
+                await license.save();
+                return res.json({ success: false, error: 'Key expirada' });
+            }
+        }
+        
+        // Verificar usos (para perm single-use)
+        if (license.program === 'perm' && license.category === 'single') {
+            if (license.usage_count >= license.max_uses) {
+                license.status = 'used';
+                await license.save();
+                return res.json({ success: false, error: 'Key ya utilizada' });
+            }
+        }
+        
+        // Primera activación
+        if (!license.hwid) {
+            license.hwid = hwid;
+            license.status = 'active';
+            license.usage_count = 1;
+            license.last_login = new Date();
+            if (ip) license.ip_addresses.push(ip);
+            await license.save();
+            
+            await Log.create({ 
+                key, 
+                program: license.program, 
+                action: 'FIRST_ACTIVATION', 
+                ip, 
+                hwid,
+                details: { category: license.category }
+            });
+            
+            return res.json({ 
+                success: true, 
+                program: license.program,
+                category: license.category,
+                expires_at: license.expires_at,
+                first_activation: true
+            });
+        }
+        
+        // Verificar HWID
+        if (license.hwid !== hwid) {
+            await Log.create({ key, program: license.program, action: 'HWID_MISMATCH', ip, hwid });
+            return res.json({ success: false, error: 'HWID no coincide' });
+        }
+        
+        // Incrementar uso para single-use
+        if (license.program === 'perm' && license.category === 'single') {
+            license.usage_count += 1;
+            if (license.usage_count >= license.max_uses) {
+                license.status = 'used';
+            }
+        }
+        
+        license.last_login = new Date();
+        if (ip && !license.ip_addresses.includes(ip)) {
+            license.ip_addresses.push(ip);
+        }
+        await license.save();
+        
+        await Log.create({ 
+            key, 
+            program: license.program, 
+            action: 'LOGIN_SUCCESS', 
+            ip, 
+            hwid,
+            details: { usage_count: license.usage_count }
+        });
+        
+        res.json({ 
+            success: true, 
+            program: license.program,
+            category: license.category,
+            expires_at: license.expires_at
+        });
+        
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Error interno' });
+    }
+});
+
+// ========== ESTADÍSTICAS ACTUALIZADAS ==========
+app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        const stats = {
+            total: await Key.countDocuments(),
+            active: await Key.countDocuments({ status: 'active' }),
+            unused: await Key.countDocuments({ status: 'unused' }),
+            banned: await Key.countDocuments({ status: 'banned' }),
+            expired: await Key.countDocuments({ status: 'expired' }),
+            used: await Key.countDocuments({ status: 'used' }),
+            
+            by_program: {
+                temp: await Key.countDocuments({ program: 'temp' }),
+                perm: await Key.countDocuments({ program: 'perm' })
+            },
+            
+            by_category: {
+                temp: {
+                    '1d': await Key.countDocuments({ program: 'temp', category: '1d' }),
+                    '7d': await Key.countDocuments({ program: 'temp', category: '7d' }),
+                    '30d': await Key.countDocuments({ program: 'temp', category: '30d' }),
+                    '90d': await Key.countDocuments({ program: 'temp', category: '90d' }),
+                    '365d': await Key.countDocuments({ program: 'temp', category: '365d' }),
+                    'lifetime': await Key.countDocuments({ program: 'temp', category: 'lifetime' })
+                },
+                perm: {
+                    'single': await Key.countDocuments({ program: 'perm', category: 'single' }),
+                    'lifetime': await Key.countDocuments({ program: 'perm', category: 'lifetime' })
+                }
+            },
+            
+            activations_today: await Log.countDocuments({ 
+                action: 'LOGIN_SUCCESS',
+                timestamp: { $gte: today }
+            })
+        };
+        
+        res.json(stats);
+        
+    } catch (error) {
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
 app.put('/api/keys/:key', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
     try {
         const { status, notes } = req.body;
@@ -301,7 +490,6 @@ app.put('/api/keys/:key', verifyToken, checkRole(['owner', 'admin']), async (req
     }
 });
 
-// Reset HWID
 app.post('/api/keys/:key/reset-hwid', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
     try {
         await Key.findOneAndUpdate(
@@ -322,135 +510,18 @@ app.post('/api/keys/:key/reset-hwid', verifyToken, checkRole(['owner', 'admin'])
     }
 });
 
-// Estadísticas
-app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
-    try {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        const stats = {
-            total: await Key.countDocuments(),
-            active: await Key.countDocuments({ status: 'active' }),
-            unused: await Key.countDocuments({ status: 'unused' }),
-            banned: await Key.countDocuments({ status: 'banned' }),
-            expired: await Key.countDocuments({ status: 'expired' }),
-            by_program: {
-                temp: await Key.countDocuments({ program: 'temp' }),
-                perm: await Key.countDocuments({ program: 'perm' })
-            },
-            by_type: {
-                lifetime: await Key.countDocuments({ type: 'lifetime' }),
-                '1d': await Key.countDocuments({ type: '1d' }),
-                '7d': await Key.countDocuments({ type: '7d' }),
-                '30d': await Key.countDocuments({ type: '30d' }),
-                '90d': await Key.countDocuments({ type: '90d' }),
-                yearly: await Key.countDocuments({ type: 'yearly' })
-            },
-            activations_today: await Log.countDocuments({ 
-                action: 'LOGIN_SUCCESS',
-                timestamp: { $gte: today }
-            })
-        };
-        
-        res.json(stats);
-        
-    } catch (error) {
-        res.status(500).json({ error: 'Error interno' });
-    }
-});
-
-// Verificar licencia (para el cliente)
-app.post('/api/verify', async (req, res) => {
-    try {
-        const { key, hwid, ip, program } = req.body;
-        
-        if (!program || !['temp', 'perm'].includes(program)) {
-            return res.json({ success: false, error: 'Programa no especificado' });
-        }
-        
-        const license = await Key.findOne({ key: key.toUpperCase() });
-        
-        if (!license) {
-            return res.json({ success: false, error: 'Key inválida' });
-        }
-        
-        // Verificar que la key es para el programa correcto
-        if (license.program !== program) {
-            const programName = license.program === 'temp' ? 'Temporal' : 'Permanente';
-            return res.json({ 
-                success: false, 
-                error: `Esta key es para el programa ${programName}. No puedes usarla aquí.` 
-            });
-        }
-        
-        // Verificar si está baneada
-        if (license.status === 'banned') {
-            return res.json({ success: false, error: 'Key baneada' });
-        }
-        
-        // Verificar expiración (solo para programa temp)
-        if (license.program === 'temp' && license.expires_at && new Date() > license.expires_at) {
-            license.status = 'expired';
-            await license.save();
-            return res.json({ success: false, error: 'Key expirada' });
-        }
-        
-        // Primera activación
-        if (!license.hwid) {
-            license.hwid = hwid;
-            license.status = 'active';
-            license.last_login = new Date();
-            if (ip) license.ip_addresses.push(ip);
-            await license.save();
-            
-            await Log.create({ key, program: license.program, action: 'FIRST_ACTIVATION', ip, hwid });
-            
-            return res.json({ 
-                success: true, 
-                program: license.program,
-                type: license.type,
-                expires_at: license.expires_at,
-                first_activation: true
-            });
-        }
-        
-        // Verificar HWID
-        if (license.hwid !== hwid) {
-            await Log.create({ key, program: license.program, action: 'HWID_MISMATCH', ip, hwid });
-            return res.json({ success: false, error: 'HWID no coincide' });
-        }
-        
-        // Todo correcto
-        license.last_login = new Date();
-        if (ip && !license.ip_addresses.includes(ip)) {
-            license.ip_addresses.push(ip);
-        }
-        await license.save();
-        
-        await Log.create({ key, program: license.program, action: 'LOGIN_SUCCESS', ip, hwid });
-        
-        res.json({ 
-            success: true, 
-            program: license.program,
-            type: license.type,
-            expires_at: license.expires_at
-        });
-        
-    } catch (error) {
-        res.status(500).json({ success: false, error: 'Error interno' });
-    }
-});
-
-// Ruta de prueba
 app.get('/', (req, res) => {
     res.json({ 
         name: 'PinkAuth API',
-        version: '1.0.0',
-        status: 'online'
+        version: '2.0.0',
+        status: 'online',
+        programs: ['temp', 'perm'],
+        temp_categories: ['1d', '7d', '30d', '90d', '365d', 'lifetime'],
+        perm_categories: ['single', 'lifetime']
     });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`✅ API corriendo en puerto ${PORT}`);
+    console.log(`✅ PinkAuth API v2.0 corriendo en puerto ${PORT}`);
 });
