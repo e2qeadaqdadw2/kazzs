@@ -11,17 +11,19 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Rate limiting
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100
 });
 app.use('/api/', limiter);
 
+// Conectar a MongoDB - SIN OPCIONES OBSOLETAS
 mongoose.connect(process.env.MONGODB_URI)
     .then(() => console.log('✅ Conectado a MongoDB'))
     .catch(err => console.error('❌ Error MongoDB:', err));
 
-// ========== MODELO ACTUALIZADO ==========
+// ========== MODELOS ==========
 const KeySchema = new mongoose.Schema({
     key: { type: String, unique: true, required: true },
     program: { 
@@ -31,11 +33,7 @@ const KeySchema = new mongoose.Schema({
     },
     category: { 
         type: String,
-        required: true,
-        enum: {
-            'temp': ['1d', '7d', '30d', '90d', '365d', 'lifetime'],
-            'perm': ['single', 'lifetime']
-        }
+        required: true
     },
     subcategory: { 
         type: String,
@@ -171,11 +169,12 @@ app.post('/api/auth/discord', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ error: 'Error en autenticación' });
+        console.error('Error en auth discord:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Error en autenticación', details: error.message });
     }
 });
 
+// Verificar sesión
 app.get('/api/auth/me', verifyToken, async (req, res) => {
     const user = await User.findOne({ discord_id: req.user.discord_id });
     res.json({
@@ -186,15 +185,16 @@ app.get('/api/auth/me', verifyToken, async (req, res) => {
     });
 });
 
-// ========== GENERAR KEYS ACTUALIZADO ==========
+// ========== GENERAR KEYS ==========
 app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
     try {
-        const { program, category, subcategory, count = 1, notes = '' } = req.body;
+        const { program, category, count = 1, notes = '' } = req.body;
         
         if (!program || !['temp', 'perm'].includes(program)) {
             return res.status(400).json({ error: 'Programa no válido' });
         }
         
+        // Validar categorías
         if (program === 'temp') {
             const validTemp = ['1d', '7d', '30d', '90d', '365d', 'lifetime'];
             if (!validTemp.includes(category)) {
@@ -215,6 +215,7 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
         const now = new Date();
         
         for (let i = 0; i < count; i++) {
+            // Generar key: XXXXX-XXXXX-XXXXX
             const key = Array(3).fill(0).map(() => 
                 crypto.randomBytes(3).toString('hex').toUpperCase()
             ).join('-');
@@ -222,6 +223,7 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
             let expires_at = null;
             let max_uses = null;
             
+            // Configurar expiración para temporales
             if (program === 'temp' && category !== 'lifetime') {
                 const expires = new Date(now);
                 switch(category) {
@@ -234,6 +236,7 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
                 expires_at = expires;
             }
             
+            // Configurar usos para single-use
             if (program === 'perm' && category === 'single') {
                 max_uses = 1;
             }
@@ -242,7 +245,6 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
                 key: key,
                 program: program,
                 category: category,
-                subcategory: subcategory,
                 expires_at: expires_at,
                 max_uses: max_uses,
                 created_by: req.user.username,
@@ -255,18 +257,18 @@ app.post('/api/keys/generate', verifyToken, checkRole(['owner', 'admin']), async
         await Log.create({
             action: 'KEYS_GENERATED',
             user: req.user.username,
-            details: { program, category, subcategory, count, keys }
+            details: { program, category, count, keys }
         });
         
         res.json({ success: true, keys });
         
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Error generando keys:', error);
         res.status(500).json({ error: 'Error interno' });
     }
 });
 
-// ========== LISTAR KEYS ACTUALIZADO ==========
+// ========== LISTAR KEYS ==========
 app.get('/api/keys', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
     try {
         const { program, category, status, search, page = 1, limit = 20 } = req.query;
@@ -301,26 +303,124 @@ app.get('/api/keys', verifyToken, checkRole(['owner', 'admin', 'moderator']), as
         });
         
     } catch (error) {
+        console.error('Error listando keys:', error);
         res.status(500).json({ error: 'Error interno' });
     }
 });
 
-// ========== VERIFICAR LICENCIA ACTUALIZADO ==========
+// ========== ACTUALIZAR KEY ==========
+app.put('/api/keys/:key', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
+    try {
+        const { status, notes } = req.body;
+        const updateData = {};
+        if (status) updateData.status = status;
+        if (notes !== undefined) updateData.notes = notes;
+        
+        await Key.findOneAndUpdate({ key: req.params.key.toUpperCase() }, updateData);
+        
+        await Log.create({
+            key: req.params.key,
+            action: 'KEY_UPDATED',
+            user: req.user.username,
+            details: updateData
+        });
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('Error actualizando key:', error);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+// ========== RESET HWID ==========
+app.post('/api/keys/:key/reset-hwid', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
+    try {
+        await Key.findOneAndUpdate(
+            { key: req.params.key.toUpperCase() }, 
+            { hwid: null }
+        );
+        
+        await Log.create({
+            key: req.params.key,
+            action: 'HWID_RESET',
+            user: req.user.username
+        });
+        
+        res.json({ success: true });
+        
+    } catch (error) {
+        console.error('Error reseteando HWID:', error);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+// ========== ESTADÍSTICAS ==========
+app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        
+        const stats = {
+            total: await Key.countDocuments(),
+            active: await Key.countDocuments({ status: 'active' }),
+            unused: await Key.countDocuments({ status: 'unused' }),
+            banned: await Key.countDocuments({ status: 'banned' }),
+            expired: await Key.countDocuments({ status: 'expired' }),
+            used: await Key.countDocuments({ status: 'used' }),
+            
+            by_program: {
+                temp: await Key.countDocuments({ program: 'temp' }),
+                perm: await Key.countDocuments({ program: 'perm' })
+            },
+            
+            by_category: {
+                temp: {
+                    '1d': await Key.countDocuments({ program: 'temp', category: '1d' }),
+                    '7d': await Key.countDocuments({ program: 'temp', category: '7d' }),
+                    '30d': await Key.countDocuments({ program: 'temp', category: '30d' }),
+                    '90d': await Key.countDocuments({ program: 'temp', category: '90d' }),
+                    '365d': await Key.countDocuments({ program: 'temp', category: '365d' }),
+                    'lifetime': await Key.countDocuments({ program: 'temp', category: 'lifetime' })
+                },
+                perm: {
+                    'single': await Key.countDocuments({ program: 'perm', category: 'single' }),
+                    'lifetime': await Key.countDocuments({ program: 'perm', category: 'lifetime' })
+                }
+            },
+            
+            activations_today: await Log.countDocuments({ 
+                action: 'LOGIN_SUCCESS',
+                timestamp: { $gte: today }
+            })
+        };
+        
+        res.json(stats);
+        
+    } catch (error) {
+        console.error('Error obteniendo stats:', error);
+        res.status(500).json({ error: 'Error interno' });
+    }
+});
+
+// ========== VERIFICAR LICENCIA (ENDPOINT PRINCIPAL) ==========
 app.post('/api/verify', async (req, res) => {
     try {
         const { key, hwid, ip, program } = req.body;
         
+        // Validar programa
         if (!program || !['temp', 'perm'].includes(program)) {
             return res.json({ success: false, error: 'Programa no especificado' });
         }
         
+        // Buscar key
         const license = await Key.findOne({ key: key.toUpperCase() });
         
         if (!license) {
             return res.json({ success: false, error: 'Key inválida' });
         }
         
-        // Verificar programa
+        // Verificar programa correcto
         if (license.program !== program) {
             const programName = license.program === 'temp' ? 'Temporal' : 'Permanente';
             return res.json({ 
@@ -381,7 +481,14 @@ app.post('/api/verify', async (req, res) => {
         
         // Verificar HWID
         if (license.hwid !== hwid) {
-            await Log.create({ key, program: license.program, action: 'HWID_MISMATCH', ip, hwid });
+            await Log.create({ 
+                key, 
+                program: license.program, 
+                action: 'HWID_MISMATCH', 
+                ip, 
+                hwid,
+                details: { expected: license.hwid, received: hwid }
+            });
             return res.json({ success: false, error: 'HWID no coincide' });
         }
         
@@ -393,6 +500,7 @@ app.post('/api/verify', async (req, res) => {
             }
         }
         
+        // Actualizar último login
         license.last_login = new Date();
         if (ip && !license.ip_addresses.includes(ip)) {
             license.ip_addresses.push(ip);
@@ -416,100 +524,12 @@ app.post('/api/verify', async (req, res) => {
         });
         
     } catch (error) {
+        console.error('Error en verify:', error);
         res.status(500).json({ success: false, error: 'Error interno' });
     }
 });
 
-// ========== ESTADÍSTICAS ACTUALIZADAS ==========
-app.get('/api/stats', verifyToken, checkRole(['owner', 'admin', 'moderator']), async (req, res) => {
-    try {
-        const today = new Date();
-        today.setHours(0,0,0,0);
-        
-        const stats = {
-            total: await Key.countDocuments(),
-            active: await Key.countDocuments({ status: 'active' }),
-            unused: await Key.countDocuments({ status: 'unused' }),
-            banned: await Key.countDocuments({ status: 'banned' }),
-            expired: await Key.countDocuments({ status: 'expired' }),
-            used: await Key.countDocuments({ status: 'used' }),
-            
-            by_program: {
-                temp: await Key.countDocuments({ program: 'temp' }),
-                perm: await Key.countDocuments({ program: 'perm' })
-            },
-            
-            by_category: {
-                temp: {
-                    '1d': await Key.countDocuments({ program: 'temp', category: '1d' }),
-                    '7d': await Key.countDocuments({ program: 'temp', category: '7d' }),
-                    '30d': await Key.countDocuments({ program: 'temp', category: '30d' }),
-                    '90d': await Key.countDocuments({ program: 'temp', category: '90d' }),
-                    '365d': await Key.countDocuments({ program: 'temp', category: '365d' }),
-                    'lifetime': await Key.countDocuments({ program: 'temp', category: 'lifetime' })
-                },
-                perm: {
-                    'single': await Key.countDocuments({ program: 'perm', category: 'single' }),
-                    'lifetime': await Key.countDocuments({ program: 'perm', category: 'lifetime' })
-                }
-            },
-            
-            activations_today: await Log.countDocuments({ 
-                action: 'LOGIN_SUCCESS',
-                timestamp: { $gte: today }
-            })
-        };
-        
-        res.json(stats);
-        
-    } catch (error) {
-        res.status(500).json({ error: 'Error interno' });
-    }
-});
-
-app.put('/api/keys/:key', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
-    try {
-        const { status, notes } = req.body;
-        const updateData = {};
-        if (status) updateData.status = status;
-        if (notes !== undefined) updateData.notes = notes;
-        
-        await Key.findOneAndUpdate({ key: req.params.key.toUpperCase() }, updateData);
-        
-        await Log.create({
-            key: req.params.key,
-            action: 'KEY_UPDATED',
-            user: req.user.username,
-            details: updateData
-        });
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        res.status(500).json({ error: 'Error interno' });
-    }
-});
-
-app.post('/api/keys/:key/reset-hwid', verifyToken, checkRole(['owner', 'admin']), async (req, res) => {
-    try {
-        await Key.findOneAndUpdate(
-            { key: req.params.key.toUpperCase() }, 
-            { hwid: null }
-        );
-        
-        await Log.create({
-            key: req.params.key,
-            action: 'HWID_RESET',
-            user: req.user.username
-        });
-        
-        res.json({ success: true });
-        
-    } catch (error) {
-        res.status(500).json({ error: 'Error interno' });
-    }
-});
-
+// ========== RUTA DE PRUEBA ==========
 app.get('/', (req, res) => {
     res.json({ 
         name: 'PinkAuth API',
@@ -517,11 +537,22 @@ app.get('/', (req, res) => {
         status: 'online',
         programs: ['temp', 'perm'],
         temp_categories: ['1d', '7d', '30d', '90d', '365d', 'lifetime'],
-        perm_categories: ['single', 'lifetime']
+        perm_categories: ['single', 'lifetime'],
+        timestamp: new Date().toISOString()
     });
+});
+
+// ========== PING (para uptimerobot) ==========
+app.get('/ping', (req, res) => {
+    res.send('pong');
+});
+
+app.get('/health', (req, res) => {
+    res.json({ status: 'healthy', time: new Date().toISOString() });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`✅ PinkAuth API v2.0 corriendo en puerto ${PORT}`);
+    console.log(`🌐 URL: https://kazzs-production.up.railway.app`);
 });
