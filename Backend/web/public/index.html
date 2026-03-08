@@ -5,9 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PinkAuth - Sistema de Autenticación</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('/font.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            font-family: 'CustomFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
@@ -83,7 +94,7 @@
 
     <script>
         const CLIENT_ID = '1480260597902999653';
-	const REDIRECT_URI = encodeURIComponent('https://kazzs-production-8642.up.railway.app/callback');
+        const REDIRECT_URI = encodeURIComponent('https://kazzs-production-8642.up.railway.app/callback');
         
         document.getElementById('loginBtn').addEventListener('click', () => {
             const discordUrl = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=identify`;
