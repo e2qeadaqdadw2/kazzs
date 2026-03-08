@@ -16,7 +16,8 @@ app.use((req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 5000;
+// CAMBIA ESTO: de 5000 a 8080
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`✅ Web corriendo en puerto ${PORT}`);
     console.log(`🌐 http://localhost:${PORT}`);
