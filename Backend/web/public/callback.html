@@ -13,12 +13,13 @@
             margin: 0;
             font-family: Arial, sans-serif;
         }
-        .loader {
+        .container {
             text-align: center;
             color: white;
             max-width: 500px;
             padding: 20px;
         }
+        h2 { margin-bottom: 20px; }
         .spinner {
             border: 5px solid rgba(255,255,255,0.3);
             border-radius: 50%;
@@ -28,72 +29,86 @@
             animation: spin 1s linear infinite;
             margin: 20px auto;
         }
-        .error {
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error-box {
             background: rgba(255,0,0,0.2);
+            border: 1px solid rgba(255,0,0,0.5);
             padding: 20px;
             border-radius: 10px;
             margin-top: 20px;
             text-align: left;
-            font-family: monospace;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="loader">
+    <div class="container">
         <h2 id="status">Iniciando sesión...</h2>
-        <div class="spinner"></div>
-        <div id="errorDetails" class="error" style="display: none;"></div>
+        <div class="spinner" id="spinner"></div>
+        <div id="errorContainer" style="display: none;"></div>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const error = urlParams.get('error');
+        const API_URL = 'https://kazzs-production.up.railway.app';
+        
+        async function handleCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
 
-        if (error) {
-            document.getElementById('status').textContent = '❌ Error en autenticación';
-            document.getElementById('errorDetails').style.display = 'block';
-            document.getElementById('errorDetails').innerHTML = `
-                <strong>Error:</strong> ${error}<br>
-                <strong>Descripción:</strong> ${urlParams.get('error_description') || 'No disponible'}<br><br>
-                <button onclick="window.location.href='/'" style="padding:10px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;">Volver</button>
-            `;
-        } else if (!code) {
-            document.getElementById('status').textContent = '❌ No se recibió código';
-            setTimeout(() => window.location.href = '/', 3000);
-        } else {
-            // Enviar código a la API
-            fetch('https://kazzs-production.up.railway.app/api/auth/discord', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code })
-            })
-            .then(res => res.json())
-            .then(data => {
+            if (error) {
+                showError(`Error de Discord: ${error}`);
+                return;
+            }
+
+            if (!code) {
+                showError('No se recibió código de autorización');
+                setTimeout(() => window.location.href = '/', 3000);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/api/auth/discord`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+
+                const data = await response.json();
+
                 if (data.success) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     window.location.href = '/dashboard';
                 } else {
-                    document.getElementById('status').textContent = '❌ Error: ' + (data.error || 'Error desconocido');
-                    document.getElementById('errorDetails').style.display = 'block';
-                    document.getElementById('errorDetails').innerHTML = `
-                        <strong>Error:</strong> ${data.error}<br>
-                        <button onclick="window.location.href='/'" style="padding:10px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;">Volver</button>
-                    `;
+                    showError(data.error || 'Error desconocido');
                 }
-            })
-            .catch(err => {
-                document.getElementById('status').textContent = '❌ Error de conexión';
-                document.getElementById('errorDetails').style.display = 'block';
-                document.getElementById('errorDetails').innerHTML = `
-                    <strong>Error:</strong> No se pudo conectar con la API<br>
-                    <strong>Detalles:</strong> ${err.message}<br><br>
-                    <button onclick="window.location.href='/'" style="padding:10px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;">Volver</button>
-                `;
-            });
+            } catch (err) {
+                showError(`Error de conexión: ${err.message}`);
+            }
         }
+
+        function showError(message) {
+            document.getElementById('status').textContent = '❌ Error';
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('errorContainer').style.display = 'block';
+            document.getElementById('errorContainer').innerHTML = `
+                <div class="error-box">
+                    <strong>Error:</strong> ${message}<br><br>
+                    <button class="btn" onclick="window.location.href='/'">Volver al inicio</button>
+                </div>
+            `;
+        }
+
+        handleCallback();
     </script>
 </body>
 </html>

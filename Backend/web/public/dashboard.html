@@ -27,7 +27,10 @@
             padding: 30px 20px;
             border-bottom: 1px solid #eee;
         }
-        .sidebar-header h2 { color: #667eea; font-size: 1.5em; }
+        .sidebar-header h2 { 
+            color: #667eea; 
+            font-size: 1.5em; 
+        }
         .user-info {
             padding: 20px;
             display: flex;
@@ -256,17 +259,27 @@
                 <div class="filters">
                     <input type="text" id="keySearch" placeholder="Buscar key o HWID...">
                     <select id="statusFilter">
-                        <option value="">Todos</option>
+                        <option value="">Todos los estados</option>
                         <option value="active">Activas</option>
                         <option value="unused">Sin usar</option>
                         <option value="banned">Baneadas</option>
                         <option value="expired">Expiradas</option>
                     </select>
-                    <button onclick="loadKeys()">Filtrar</button>
+                    <button onclick="loadKeys(1)">Filtrar</button>
                 </div>
                 <table class="keys-table">
-                    <thead><tr><th>Key</th><th>Tipo</th><th>Estado</th><th>HWID</th><th>Acciones</th></tr></thead>
-                    <tbody id="keysTableBody"><tr><td colspan="5" class="loading">Cargando keys...</td></tr></tbody>
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>HWID</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="keysTableBody">
+                        <tr><td colspan="5" class="loading">Cargando keys...</td></tr>
+                    </tbody>
                 </table>
             </div>
             
@@ -274,7 +287,7 @@
                 <h1>Generar Keys</h1>
                 <div class="generate-form">
                     <div class="form-group">
-                        <label>Tipo:</label>
+                        <label>Tipo de Key:</label>
                         <select id="generateType">
                             <option value="lifetime">Lifetime</option>
                             <option value="1d">1 Día</option>
@@ -285,12 +298,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Cantidad:</label>
+                        <label>Cantidad (1-50):</label>
                         <input type="number" id="generateCount" min="1" max="50" value="1">
                     </div>
                     <button onclick="generateKeys()" class="btn-primary">Generar Keys</button>
                 </div>
-                <div id="generatedKeys" class="generated-keys" style="display:none;">
+                <div id="generatedKeys" class="generated-keys" style="display: none;">
                     <h3>Keys Generadas:</h3>
                     <textarea id="keysOutput" readonly rows="5"></textarea>
                     <button onclick="copyKeys()">Copiar Keys</button>
@@ -302,19 +315,28 @@
     <script>
         const API_URL = 'https://kazzs-production.up.railway.app';
         let currentUser = null;
+        let currentPage = 1;
 
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('token');
-            if (!token) window.location.href = '/';
-            else loadUserData();
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            loadUserData();
         });
 
         async function loadUserData() {
             try {
-                const res = await fetch(`${API_URL}/api/auth/me`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                const response = await fetch(`${API_URL}/api/auth/me`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
-                const user = await res.json();
+                
+                if (!response.ok) throw new Error('No autorizado');
+                
+                const user = await response.json();
                 currentUser = user;
                 
                 document.getElementById('userName').textContent = user.username;
@@ -330,7 +352,10 @@
                 setupNavigation();
                 loadDashboard();
                 
-            } catch { logout(); }
+            } catch (error) {
+                console.error('Error:', error);
+                logout();
+            }
         }
 
         function setupNavigation() {
@@ -338,59 +363,81 @@
                 link.addEventListener('click', () => {
                     document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
                     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                    
                     link.classList.add('active');
-                    document.getElementById(`${link.dataset.page}-page`).classList.add('active');
+                    const pageId = `${link.dataset.page}-page`;
+                    document.getElementById(pageId).classList.add('active');
+                    
                     if (link.dataset.page === 'dashboard') loadDashboard();
-                    if (link.dataset.page === 'keys') loadKeys();
+                    if (link.dataset.page === 'keys') loadKeys(1);
                 });
             });
         }
 
         async function loadDashboard() {
             try {
-                const res = await fetch(`${API_URL}/api/stats?admin_key=aa`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                const response = await fetch(`${API_URL}/api/stats?admin_key=aa`, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
-                const stats = await res.json();
-                document.getElementById('totalKeys').textContent = stats.total;
-                document.getElementById('activeKeys').textContent = stats.active;
-                document.getElementById('activationsToday').textContent = stats.activations_today;
-            } catch (error) { console.error(error); }
+                
+                const stats = await response.json();
+                
+                document.getElementById('totalKeys').textContent = stats.total || 0;
+                document.getElementById('activeKeys').textContent = stats.active || 0;
+                document.getElementById('activationsToday').textContent = stats.activations_today || 0;
+                document.getElementById('keysToday').textContent = stats.keys_generated_today || 0;
+                
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+            }
         }
 
-        async function loadKeys() {
+        async function loadKeys(page = 1) {
+            currentPage = page;
             const search = document.getElementById('keySearch').value;
             const status = document.getElementById('statusFilter').value;
             
             try {
-                const url = new URL(`${API_URL}/api/keys`);
-                if (search) url.searchParams.append('search', search);
-                if (status) url.searchParams.append('status', status);
+                let url = `${API_URL}/api/keys?page=${page}&limit=20`;
+                if (search) url += `&search=${encodeURIComponent(search)}`;
+                if (status) url += `&status=${status}`;
                 
-                const res = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
-                const data = await res.json();
                 
-                document.getElementById('keysTableBody').innerHTML = data.keys.map(key => `
-                    <tr>
-                        <td><code>${key.key}</code></td>
-                        <td>${key.type}</td>
-                        <td><span class="status-badge status-${key.status}">${key.status}</span></td>
-                        <td><code>${key.hwid || '-'}</code></td>
-                        <td>
-                            ${key.status !== 'banned' ? 
-                                `<button class="action-btn ban" onclick="banKey('${key.key}')">🔨</button>` :
-                                `<button class="action-btn unban" onclick="unbanKey('${key.key}')">✅</button>`
-                            }
-                            ${key.hwid ? 
-                                `<button class="action-btn reset" onclick="resetHwid('${key.key}')">🔄</button>` : ''
-                            }
-                        </td>
-                    </tr>
-                `).join('');
+                const data = await response.json();
                 
-            } catch (error) { console.error(error); }
+                if (data.keys && data.keys.length > 0) {
+                    document.getElementById('keysTableBody').innerHTML = data.keys.map(key => `
+                        <tr>
+                            <td><code>${key.key}</code></td>
+                            <td>${key.type}</td>
+                            <td><span class="status-badge status-${key.status}">${key.status}</span></td>
+                            <td><code>${key.hwid || '-'}</code></td>
+                            <td>
+                                ${key.status !== 'banned' ? 
+                                    `<button class="action-btn ban" onclick="banKey('${key.key}')">🔨</button>` :
+                                    `<button class="action-btn unban" onclick="unbanKey('${key.key}')">✅</button>`
+                                }
+                                ${key.hwid ? 
+                                    `<button class="action-btn reset" onclick="resetHwid('${key.key}')">🔄</button>` : ''
+                                }
+                            </td>
+                        </tr>
+                    `).join('');
+                } else {
+                    document.getElementById('keysTableBody').innerHTML = '<tr><td colspan="5" class="loading">No hay keys</td></tr>';
+                }
+                
+            } catch (error) {
+                console.error('Error loading keys:', error);
+                document.getElementById('keysTableBody').innerHTML = '<tr><td colspan="5" class="loading">Error cargando keys</td></tr>';
+            }
         }
 
         async function generateKeys() {
@@ -398,26 +445,32 @@
             const count = document.getElementById('generateCount').value;
             
             try {
-                const res = await fetch(`${API_URL}/api/keys/generate`, {
+                const response = await fetch(`${API_URL}/api/keys/generate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
-                    body: JSON.stringify({ type, count })
+                    body: JSON.stringify({ type, count: parseInt(count) })
                 });
                 
-                const data = await res.json();
+                const data = await response.json();
+                
                 if (data.success) {
                     document.getElementById('keysOutput').value = data.keys.join('\n');
                     document.getElementById('generatedKeys').style.display = 'block';
+                } else {
+                    alert('Error: ' + (data.error || 'Error desconocido'));
                 }
                 
-            } catch (error) { alert('Error generando keys'); }
+            } catch (error) {
+                alert('Error generando keys');
+            }
         }
 
         async function banKey(key) {
-            if (!confirm(`¿Banear key ${key}?`)) return;
+            if (!confirm(`¿Estás seguro de banear la key ${key}?`)) return;
+            
             try {
                 await fetch(`${API_URL}/api/keys/${key}`, {
                     method: 'PUT',
@@ -427,12 +480,15 @@
                     },
                     body: JSON.stringify({ status: 'banned' })
                 });
-                loadKeys();
-            } catch { alert('Error'); }
+                loadKeys(currentPage);
+            } catch (error) {
+                alert('Error baneando key');
+            }
         }
 
         async function unbanKey(key) {
-            if (!confirm(`¿Desbanear key ${key}?`)) return;
+            if (!confirm(`¿Estás seguro de desbanear la key ${key}?`)) return;
+            
             try {
                 await fetch(`${API_URL}/api/keys/${key}`, {
                     method: 'PUT',
@@ -442,25 +498,33 @@
                     },
                     body: JSON.stringify({ status: 'unused' })
                 });
-                loadKeys();
-            } catch { alert('Error'); }
+                loadKeys(currentPage);
+            } catch (error) {
+                alert('Error desbaneando key');
+            }
         }
 
         async function resetHwid(key) {
-            if (!confirm(`¿Resetear HWID de key ${key}?`)) return;
+            if (!confirm(`¿Resetear HWID de la key ${key}?`)) return;
+            
             try {
                 await fetch(`${API_URL}/api/keys/${key}/reset-hwid`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    }
                 });
-                loadKeys();
-            } catch { alert('Error'); }
+                loadKeys(currentPage);
+            } catch (error) {
+                alert('Error reseteando HWID');
+            }
         }
 
         function copyKeys() {
-            document.getElementById('keysOutput').select();
+            const output = document.getElementById('keysOutput');
+            output.select();
             document.execCommand('copy');
-            alert('Keys copiadas');
+            alert('Keys copiadas al portapapeles');
         }
 
         function logout() {

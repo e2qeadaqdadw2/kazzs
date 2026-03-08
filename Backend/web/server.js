@@ -2,23 +2,32 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
+// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Ruta principal
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Ruta dashboard
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
+// Ruta callback
 app.get('/callback', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'callback.html'));
 });
 
-app.use((req, res) => {
+// Para cualquier otra ruta, redirigir a index
+app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// CAMBIA ESTO: de 5000 a 8080
-const PORT = process.env.PORT || 8080;
+// El puerto lo toma de Railway (8080) o usa 5000 local
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`✅ Web corriendo en puerto ${PORT}`);
+    console.log(`✅ Servidor web corriendo en puerto ${PORT}`);
     console.log(`🌐 http://localhost:${PORT}`);
 });
