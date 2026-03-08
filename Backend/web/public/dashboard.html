@@ -108,35 +108,12 @@
             flex: 1;
             margin-left: 280px;
             padding: 30px;
-        }
-        .page { display: none; }
-        .page.active { display: block; }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin: 30px 0;
-        }
-        .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .stat-card h3 {
-            color: #666;
-            font-size: 0.9em;
-            margin-bottom: 10px;
-        }
-        .stat-card p {
-            font-size: 2em;
-            font-weight: 600;
-            color: #333;
+            position: relative;
         }
         .language-selector {
             position: absolute;
             top: 20px;
-            right: 20px;
+            right: 30px;
             display: flex;
             gap: 8px;
             background: white;
@@ -174,10 +151,35 @@
             opacity: 1;
             transform: scale(1.1);
         }
+        .page { display: none; }
+        .page.active { display: block; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 30px 0;
+        }
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+        }
+        .stat-card p {
+            font-size: 2em;
+            font-weight: 600;
+            color: #333;
+        }
         .program-tabs {
             display: flex;
             gap: 10px;
             margin: 20px 0;
+            flex-wrap: wrap;
         }
         .program-tab {
             padding: 10px 20px;
@@ -268,6 +270,7 @@
         .status-banned { background: #f8d7da; color: #721c24; }
         .status-unused { background: #fff3cd; color: #856404; }
         .status-expired { background: #e2e3e5; color: #383d41; }
+        .status-used { background: #cce5ff; color: #004085; }
         .action-btn {
             padding: 5px 10px;
             margin: 0 2px;
@@ -282,12 +285,14 @@
             display: flex;
             gap: 20px;
             margin-top: 20px;
+            flex-wrap: wrap;
         }
         .generate-form {
             background: white;
             padding: 30px;
             border-radius: 15px;
             flex: 1;
+            min-width: 300px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         .form-group { margin-bottom: 20px; }
@@ -330,6 +335,20 @@
             margin: 10px 0;
         }
         .loading { text-align: center; padding: 50px; color: #666; }
+        .category-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 5px;
+        }
+        .category-temp-1d { background: #ffeaa7; color: #d35400; }
+        .category-temp-7d { background: #fab1a0; color: #c0392b; }
+        .category-temp-30d { background: #55efc4; color: #00b894; }
+        .category-temp-90d { background: #81ecec; color: #0984e3; }
+        .category-temp-365d { background: #a8e6cf; color: #27ae60; }
+        .category-temp-lifetime { background: #ffcccc; color: #e84342; }
+        .category-perm-single { background: #d4edda; color: #155724; }
+        .category-perm-lifetime { background: #cce5ff; color: #004085; }
     </style>
 </head>
 <body>
@@ -391,25 +410,33 @@
                 
                 <div class="filters">
                     <input type="text" id="keySearch" placeholder="Buscar key o HWID...">
-                    <select id="typeFilter">
-                        <option value=""><span class="filter-all-types">Todos los tipos</span></option>
-                        <optgroup label="🔥 Temporales">
+                    <select id="programFilter">
+                        <option value="">Todos los programas</option>
+                        <option value="temp">🔥 Temporales</option>
+                        <option value="perm">💎 Permanentes</option>
+                    </select>
+                    <select id="categoryFilter">
+                        <option value="">Todas las categorías</option>
+                        <optgroup label="🔥 TEMPORALES">
                             <option value="1d">1 Día</option>
                             <option value="7d">7 Días</option>
-                            <option value="30d">30 Días</option>
-                            <option value="90d">90 Días</option>
-                            <option value="yearly">Anual</option>
+                            <option value="30d">1 Mes</option>
+                            <option value="90d">3 Meses</option>
+                            <option value="365d">1 Año</option>
+                            <option value="lifetime">Lifetime (Temp)</option>
                         </optgroup>
-                        <optgroup label="💎 Permanentes">
-                            <option value="lifetime">Lifetime</option>
+                        <optgroup label="💎 PERMANENTES">
+                            <option value="single">Un Uso</option>
+                            <option value="lifetime">Lifetime (Perm)</option>
                         </optgroup>
                     </select>
                     <select id="statusFilter">
-                        <option value=""><span class="filter-all-status">Todos los estados</span></option>
-                        <option value="active"><span class="status-active-text">Activas</span></option>
-                        <option value="unused"><span class="status-unused-text">Sin usar</span></option>
-                        <option value="banned"><span class="status-banned-text">Baneadas</span></option>
-                        <option value="expired"><span class="status-expired-text">Expiradas</span></option>
+                        <option value="">Todos los estados</option>
+                        <option value="active">Activas</option>
+                        <option value="unused">Sin usar</option>
+                        <option value="banned">Baneadas</option>
+                        <option value="expired">Expiradas</option>
+                        <option value="used">Usadas</option>
                     </select>
                     <button onclick="loadKeys(1)"><span class="filter-btn">Filtrar</span></button>
                 </div>
@@ -419,7 +446,7 @@
                         <tr>
                             <th><span class="table-program">Programa</span></th>
                             <th><span class="table-key">Key</span></th>
-                            <th><span class="table-type">Tipo</span></th>
+                            <th><span class="table-category">Categoría</span></th>
                             <th><span class="table-status">Estado</span></th>
                             <th><span class="table-hwid">HWID</span></th>
                             <th><span class="table-actions">Acciones</span></th>
@@ -435,40 +462,50 @@
                 <h1 class="generate-title">Generar Keys</h1>
                 
                 <div class="generate-container">
-                    <!-- Panel de Keys Temporales -->
+                    <!-- Panel de Keys TEMPORALES -->
                     <div class="generate-form">
                         <h2 style="color: #ffa502; margin-bottom: 20px;">🔥 <span class="generate-temp-title">Keys Temporales</span></h2>
                         <div class="form-group">
-                            <label class="generate-temp-type">Tipo:</label>
-                            <select id="generateTypeTemp">
+                            <label class="generate-temp-category">Categoría:</label>
+                            <select id="generateTempCategory">
                                 <option value="1d">1 Día</option>
                                 <option value="7d">7 Días</option>
-                                <option value="30d">30 Días</option>
-                                <option value="90d">90 Días</option>
-                                <option value="yearly">Anual</option>
+                                <option value="30d">1 Mes (30 días)</option>
+                                <option value="90d">3 Meses (90 días)</option>
+                                <option value="365d">1 Año (365 días)</option>
+                                <option value="lifetime">Lifetime (Sin expiración)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="generate-temp-count">Cantidad (1-50):</label>
-                            <input type="number" id="generateCountTemp" min="1" max="50" value="1">
+                            <input type="number" id="generateTempCount" min="1" max="50" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="generate-temp-notes">Notas (opcional):</label>
+                            <input type="text" id="generateTempNotes" placeholder="Ej: Promoción verano">
                         </div>
                         <button onclick="generateKeys('temp')" class="btn-primary temp">
                             <span class="generate-temp-btn">Generar Keys Temporales</span>
                         </button>
                     </div>
                     
-                    <!-- Panel de Keys Permanentes -->
+                    <!-- Panel de Keys PERMANENTES -->
                     <div class="generate-form">
                         <h2 style="color: #00d25b; margin-bottom: 20px;">💎 <span class="generate-perm-title">Keys Permanentes</span></h2>
                         <div class="form-group">
-                            <label class="generate-perm-type">Tipo:</label>
-                            <select id="generateTypePerm">
-                                <option value="lifetime">Lifetime</option>
+                            <label class="generate-perm-category">Categoría:</label>
+                            <select id="generatePermCategory">
+                                <option value="single">Un Uso (expira al usar)</option>
+                                <option value="lifetime">Lifetime (Ilimitado)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="generate-perm-count">Cantidad (1-50):</label>
-                            <input type="number" id="generateCountPerm" min="1" max="50" value="1">
+                            <input type="number" id="generatePermCount" min="1" max="50" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label class="generate-perm-notes">Notas (opcional):</label>
+                            <input type="text" id="generatePermNotes" placeholder="Ej: VIP">
                         </div>
                         <button onclick="generateKeys('perm')" class="btn-primary perm">
                             <span class="generate-perm-btn">Generar Keys Permanentes</span>
@@ -508,28 +545,24 @@
                 filterAll: 'Todos',
                 filterTemp: 'Temporales',
                 filterPerm: 'Permanentes',
-                filterAllTypes: 'Todos los tipos',
-                filterAllStatus: 'Todos los estados',
-                statusActive: 'Activas',
-                statusUnused: 'Sin usar',
-                statusBanned: 'Baneadas',
-                statusExpired: 'Expiradas',
                 filterBtn: 'Filtrar',
                 tableProgram: 'Programa',
                 tableKey: 'Key',
-                tableType: 'Tipo',
+                tableCategory: 'Categoría',
                 tableStatus: 'Estado',
                 tableHwid: 'HWID',
                 tableActions: 'Acciones',
                 loading: 'Cargando keys...',
                 generateTitle: 'Generar Keys',
                 generateTempTitle: 'Keys Temporales',
-                generateTempType: 'Tipo:',
-                generateTempCount: 'Cantidad (1-50):',
+                generateTempCategory: 'Categoría:',
+                generateTempCount: 'Cantidad:',
+                generateTempNotes: 'Notas:',
                 generateTempBtn: 'Generar Keys Temporales',
                 generatePermTitle: 'Keys Permanentes',
-                generatePermType: 'Tipo:',
-                generatePermCount: 'Cantidad (1-50):',
+                generatePermCategory: 'Categoría:',
+                generatePermCount: 'Cantidad:',
+                generatePermNotes: 'Notas:',
                 generatePermBtn: 'Generar Keys Permanentes',
                 generatedTitle: 'Keys Generadas:',
                 generatedCopy: 'Copiar Keys'
@@ -548,28 +581,24 @@
                 filterAll: 'All',
                 filterTemp: 'Temporary',
                 filterPerm: 'Permanent',
-                filterAllTypes: 'All types',
-                filterAllStatus: 'All status',
-                statusActive: 'Active',
-                statusUnused: 'Unused',
-                statusBanned: 'Banned',
-                statusExpired: 'Expired',
                 filterBtn: 'Filter',
                 tableProgram: 'Program',
                 tableKey: 'Key',
-                tableType: 'Type',
+                tableCategory: 'Category',
                 tableStatus: 'Status',
                 tableHwid: 'HWID',
                 tableActions: 'Actions',
                 loading: 'Loading keys...',
                 generateTitle: 'Generate Keys',
                 generateTempTitle: 'Temporary Keys',
-                generateTempType: 'Type:',
-                generateTempCount: 'Quantity (1-50):',
+                generateTempCategory: 'Category:',
+                generateTempCount: 'Quantity:',
+                generateTempNotes: 'Notes:',
                 generateTempBtn: 'Generate Temporary Keys',
                 generatePermTitle: 'Permanent Keys',
-                generatePermType: 'Type:',
-                generatePermCount: 'Quantity (1-50):',
+                generatePermCategory: 'Category:',
+                generatePermCount: 'Quantity:',
+                generatePermNotes: 'Notes:',
                 generatePermBtn: 'Generate Permanent Keys',
                 generatedTitle: 'Generated Keys:',
                 generatedCopy: 'Copy Keys'
@@ -588,28 +617,24 @@
                 filterAll: 'Tutti',
                 filterTemp: 'Temporanee',
                 filterPerm: 'Permanenti',
-                filterAllTypes: 'Tutti i tipi',
-                filterAllStatus: 'Tutti gli stati',
-                statusActive: 'Attive',
-                statusUnused: 'Non utilizzate',
-                statusBanned: 'Bannate',
-                statusExpired: 'Scadute',
                 filterBtn: 'Filtra',
                 tableProgram: 'Programma',
                 tableKey: 'Chiave',
-                tableType: 'Tipo',
+                tableCategory: 'Categoria',
                 tableStatus: 'Stato',
                 tableHwid: 'HWID',
                 tableActions: 'Azioni',
                 loading: 'Caricamento chiavi...',
                 generateTitle: 'Genera Chiavi',
                 generateTempTitle: 'Chiavi Temporanee',
-                generateTempType: 'Tipo:',
-                generateTempCount: 'Quantità (1-50):',
+                generateTempCategory: 'Categoria:',
+                generateTempCount: 'Quantità:',
+                generateTempNotes: 'Note:',
                 generateTempBtn: 'Genera Chiavi Temporanee',
                 generatePermTitle: 'Chiavi Permanenti',
-                generatePermType: 'Tipo:',
-                generatePermCount: 'Quantità (1-50):',
+                generatePermCategory: 'Categoria:',
+                generatePermCount: 'Quantità:',
+                generatePermNotes: 'Note:',
                 generatePermBtn: 'Genera Chiavi Permanenti',
                 generatedTitle: 'Chiavi Generate:',
                 generatedCopy: 'Copia Chiavi'
@@ -617,82 +642,74 @@
             de: {
                 dashboard: 'Dashboard',
                 keys: 'Schlüssel',
-                generate: 'Schlüssel Generieren',
+                generate: 'Generieren',
                 logout: 'Abmelden',
                 dashboardTitle: 'Dashboard',
-                statTotal: 'Gesamt Schlüssel',
+                statTotal: 'Gesamt',
                 statTemp: '🔥 Temporär',
                 statPerm: '💎 Permanent',
-                statToday: 'Aktivierungen Heute',
+                statToday: 'Heute',
                 keysTitle: 'Schlüsselverwaltung',
                 filterAll: 'Alle',
                 filterTemp: 'Temporär',
                 filterPerm: 'Permanent',
-                filterAllTypes: 'Alle Typen',
-                filterAllStatus: 'Alle Status',
-                statusActive: 'Aktiv',
-                statusUnused: 'Unbenutzt',
-                statusBanned: 'Gesperrt',
-                statusExpired: 'Abgelaufen',
-                filterBtn: 'Filtern',
+                filterBtn: 'Filter',
                 tableProgram: 'Programm',
                 tableKey: 'Schlüssel',
-                tableType: 'Typ',
+                tableCategory: 'Kategorie',
                 tableStatus: 'Status',
                 tableHwid: 'HWID',
                 tableActions: 'Aktionen',
                 loading: 'Lade Schlüssel...',
                 generateTitle: 'Schlüssel Generieren',
                 generateTempTitle: 'Temporäre Schlüssel',
-                generateTempType: 'Typ:',
-                generateTempCount: 'Anzahl (1-50):',
-                generateTempBtn: 'Temporäre Schlüssel Generieren',
+                generateTempCategory: 'Kategorie:',
+                generateTempCount: 'Anzahl:',
+                generateTempNotes: 'Notizen:',
+                generateTempBtn: 'Generieren',
                 generatePermTitle: 'Permanente Schlüssel',
-                generatePermType: 'Typ:',
-                generatePermCount: 'Anzahl (1-50):',
-                generatePermBtn: 'Permanente Schlüssel Generieren',
+                generatePermCategory: 'Kategorie:',
+                generatePermCount: 'Anzahl:',
+                generatePermNotes: 'Notizen:',
+                generatePermBtn: 'Generieren',
                 generatedTitle: 'Generierte Schlüssel:',
-                generatedCopy: 'Schlüssel Kopieren'
+                generatedCopy: 'Kopieren'
             },
             ru: {
                 dashboard: 'Панель',
                 keys: 'Ключи',
-                generate: 'Создать Ключи',
+                generate: 'Создать',
                 logout: 'Выйти',
-                dashboardTitle: 'Панель управления',
-                statTotal: 'Всего ключей',
+                dashboardTitle: 'Панель',
+                statTotal: 'Всего',
                 statTemp: '🔥 Временные',
                 statPerm: '💎 Постоянные',
-                statToday: 'Активаций сегодня',
-                keysTitle: 'Управление ключами',
+                statToday: 'Сегодня',
+                keysTitle: 'Управление',
                 filterAll: 'Все',
                 filterTemp: 'Временные',
                 filterPerm: 'Постоянные',
-                filterAllTypes: 'Все типы',
-                filterAllStatus: 'Все статусы',
-                statusActive: 'Активные',
-                statusUnused: 'Неиспользованные',
-                statusBanned: 'Заблокированные',
-                statusExpired: 'Истекшие',
                 filterBtn: 'Фильтр',
                 tableProgram: 'Программа',
                 tableKey: 'Ключ',
-                tableType: 'Тип',
+                tableCategory: 'Категория',
                 tableStatus: 'Статус',
                 tableHwid: 'HWID',
                 tableActions: 'Действия',
-                loading: 'Загрузка ключей...',
+                loading: 'Загрузка...',
                 generateTitle: 'Создать ключи',
                 generateTempTitle: 'Временные ключи',
-                generateTempType: 'Тип:',
-                generateTempCount: 'Количество (1-50):',
-                generateTempBtn: 'Создать временные ключи',
+                generateTempCategory: 'Категория:',
+                generateTempCount: 'Количество:',
+                generateTempNotes: 'Заметки:',
+                generateTempBtn: 'Создать',
                 generatePermTitle: 'Постоянные ключи',
-                generatePermType: 'Тип:',
-                generatePermCount: 'Количество (1-50):',
-                generatePermBtn: 'Создать постоянные ключи',
+                generatePermCategory: 'Категория:',
+                generatePermCount: 'Количество:',
+                generatePermNotes: 'Заметки:',
+                generatePermBtn: 'Создать',
                 generatedTitle: 'Созданные ключи:',
-                generatedCopy: 'Копировать ключи'
+                generatedCopy: 'Копировать'
             }
         };
 
@@ -703,48 +720,37 @@
             
             const t = translations[lang];
             
-            // Navegación
             document.querySelector('.nav-dashboard').textContent = t.dashboard;
             document.querySelector('.nav-keys').textContent = t.keys;
             document.querySelector('.nav-generate').textContent = t.generate;
             document.querySelector('.nav-logout').textContent = t.logout;
-            
-            // Dashboard
             document.querySelector('.dashboard-title').textContent = t.dashboardTitle;
             document.querySelector('.stat-total').textContent = t.statTotal;
             document.querySelector('.stat-temp').textContent = t.statTemp;
             document.querySelector('.stat-perm').textContent = t.statPerm;
             document.querySelector('.stat-today').textContent = t.statToday;
-            
-            // Keys page
             document.querySelector('.keys-title').textContent = t.keysTitle;
             document.querySelector('.filter-all').textContent = t.filterAll;
             document.querySelector('.filter-temp').textContent = t.filterTemp;
             document.querySelector('.filter-perm').textContent = t.filterPerm;
-            document.querySelector('.filter-all-types').textContent = t.filterAllTypes;
-            document.querySelector('.filter-all-status').textContent = t.filterAllStatus;
-            document.querySelector('.status-active-text').textContent = t.statusActive;
-            document.querySelector('.status-unused-text').textContent = t.statusUnused;
-            document.querySelector('.status-banned-text').textContent = t.statusBanned;
-            document.querySelector('.status-expired-text').textContent = t.statusExpired;
             document.querySelector('.filter-btn').textContent = t.filterBtn;
             document.querySelector('.table-program').textContent = t.tableProgram;
             document.querySelector('.table-key').textContent = t.tableKey;
-            document.querySelector('.table-type').textContent = t.tableType;
+            document.querySelector('.table-category').textContent = t.tableCategory;
             document.querySelector('.table-status').textContent = t.tableStatus;
             document.querySelector('.table-hwid').textContent = t.tableHwid;
             document.querySelector('.table-actions').textContent = t.tableActions;
             document.querySelector('.loading-text').textContent = t.loading;
-            
-            // Generate page
             document.querySelector('.generate-title').textContent = t.generateTitle;
             document.querySelector('.generate-temp-title').textContent = t.generateTempTitle;
-            document.querySelector('.generate-temp-type').textContent = t.generateTempType;
+            document.querySelector('.generate-temp-category').textContent = t.generateTempCategory;
             document.querySelector('.generate-temp-count').textContent = t.generateTempCount;
+            document.querySelector('.generate-temp-notes').textContent = t.generateTempNotes;
             document.querySelector('.generate-temp-btn').textContent = t.generateTempBtn;
             document.querySelector('.generate-perm-title').textContent = t.generatePermTitle;
-            document.querySelector('.generate-perm-type').textContent = t.generatePermType;
+            document.querySelector('.generate-perm-category').textContent = t.generatePermCategory;
             document.querySelector('.generate-perm-count').textContent = t.generatePermCount;
+            document.querySelector('.generate-perm-notes').textContent = t.generatePermNotes;
             document.querySelector('.generate-perm-btn').textContent = t.generatePermBtn;
             document.querySelector('.generated-title').textContent = t.generatedTitle;
             document.querySelector('.generated-copy').textContent = t.generatedCopy;
@@ -837,15 +843,17 @@
         async function loadKeys(page = 1) {
             currentPage = page;
             const search = document.getElementById('keySearch').value;
+            const program = document.getElementById('programFilter').value;
+            const category = document.getElementById('categoryFilter').value;
             const status = document.getElementById('statusFilter').value;
-            const type = document.getElementById('typeFilter').value;
             
             try {
                 let url = `${API_URL}/api/keys?page=${page}&limit=20`;
                 if (currentProgramFilter !== 'all') url += `&program=${currentProgramFilter}`;
+                if (program) url += `&program=${program}`;
+                if (category) url += `&category=${category}`;
                 if (search) url += `&search=${encodeURIComponent(search)}`;
                 if (status) url += `&status=${status}`;
-                if (type) url += `&type=${type}`;
                 
                 const response = await fetch(url, {
                     headers: {
@@ -860,11 +868,30 @@
                         const programIcon = key.program === 'temp' ? '🔥' : '💎';
                         const programClass = key.program === 'temp' ? 'program-temp' : 'program-perm';
                         
+                        let categoryDisplay = key.category;
+                        let categoryClass = '';
+                        
+                        if (key.program === 'temp') {
+                            switch(key.category) {
+                                case '1d': categoryDisplay = '1 Día'; categoryClass = 'category-temp-1d'; break;
+                                case '7d': categoryDisplay = '7 Días'; categoryClass = 'category-temp-7d'; break;
+                                case '30d': categoryDisplay = '1 Mes'; categoryClass = 'category-temp-30d'; break;
+                                case '90d': categoryDisplay = '3 Meses'; categoryClass = 'category-temp-90d'; break;
+                                case '365d': categoryDisplay = '1 Año'; categoryClass = 'category-temp-365d'; break;
+                                case 'lifetime': categoryDisplay = 'Lifetime'; categoryClass = 'category-temp-lifetime'; break;
+                            }
+                        } else {
+                            switch(key.category) {
+                                case 'single': categoryDisplay = 'Un Uso'; categoryClass = 'category-perm-single'; break;
+                                case 'lifetime': categoryDisplay = 'Lifetime'; categoryClass = 'category-perm-lifetime'; break;
+                            }
+                        }
+                        
                         return `
                         <tr>
-                            <td><span class="program-badge ${programClass}">${programIcon} ${key.program === 'temp' ? 'Temporal' : 'Permanente'}</span></td>
+                            <td><span class="program-badge ${programClass}">${programIcon} ${key.program === 'temp' ? 'Temp' : 'Perm'}</span></td>
                             <td><code>${key.key}</code></td>
-                            <td>${key.type}</td>
+                            <td><span class="category-badge ${categoryClass}">${categoryDisplay}</span></td>
                             <td><span class="status-badge status-${key.status}">${key.status}</span></td>
                             <td><code>${key.hwid || '-'}</code></td>
                             <td>
@@ -889,14 +916,16 @@
         }
 
         async function generateKeys(program) {
-            let typeValue, count;
+            let category, count, notes;
             
             if (program === 'temp') {
-                typeValue = document.getElementById('generateTypeTemp').value;
-                count = document.getElementById('generateCountTemp').value;
+                category = document.getElementById('generateTempCategory').value;
+                count = document.getElementById('generateTempCount').value;
+                notes = document.getElementById('generateTempNotes').value;
             } else {
-                typeValue = document.getElementById('generateTypePerm').value;
-                count = document.getElementById('generateCountPerm').value;
+                category = document.getElementById('generatePermCategory').value;
+                count = document.getElementById('generatePermCount').value;
+                notes = document.getElementById('generatePermNotes').value;
             }
             
             try {
@@ -908,8 +937,9 @@
                     },
                     body: JSON.stringify({ 
                         program: program,
-                        type: typeValue, 
-                        count: parseInt(count) 
+                        category: category,
+                        count: parseInt(count),
+                        notes: notes
                     })
                 });
                 
@@ -992,7 +1022,6 @@
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            localStorage.removeItem('selectedProgram');
             window.location.href = '/';
         }
     </script>
