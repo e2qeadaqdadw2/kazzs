@@ -2,118 +2,699 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Procesando login...</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IceAuth - Procesando autenticación...</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        @font-face {
+            font-family: 'CustomFont';
+            src: url('/font.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+        
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'CustomFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            font-family: Arial, sans-serif;
+            position: relative;
+            overflow-x: hidden;
         }
+        
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+        
+        .gradient-main {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a2a 0%, #1a1a3e 25%, #0f0f2f 50%, #1a1a3e 75%, #0a0a2a 100%);
+            background-size: 200% 200%;
+            animation: gradientFlow 15s ease infinite;
+        }
+        
+        @keyframes gradientFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .wave-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(transparent, transparent 80px, rgba(100, 120, 200, 0.05) 80px, rgba(100, 120, 200, 0.08) 85px);
+            animation: waveMove 12s linear infinite;
+        }
+        
+        @keyframes waveMove {
+            0% { transform: translateX(0) translateY(0); }
+            100% { transform: translateX(-80px) translateY(-20px); }
+        }
+        
+        .particle-system {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .particle {
+            position: absolute;
+            background: radial-gradient(circle, rgba(255,255,255,0.7), rgba(255,255,255,0));
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleFloat linear infinite;
+        }
+        
+        @keyframes particleFloat {
+            0% { transform: translateY(100vh) translateX(0) rotate(0deg); opacity: 0; }
+            15% { opacity: 0.6; }
+            85% { opacity: 0.6; }
+            100% { transform: translateY(-20vh) translateX(50px) rotate(360deg); opacity: 0; }
+        }
+        
+        .star-field {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 3s ease-in-out infinite;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0; transform: scale(1); }
+            50% { opacity: 0.9; transform: scale(1.2); }
+        }
+        
+        .nebula {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.3;
+            animation: nebulaDrift 25s ease-in-out infinite;
+        }
+        
+        .nebula-1 { top: 15%; left: 10%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(80, 100, 200, 0.4), rgba(40, 60, 160, 0.1)); }
+        .nebula-2 { bottom: 10%; right: 5%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(120, 80, 180, 0.35), rgba(60, 40, 120, 0.1)); animation-delay: -8s; }
+        .nebula-3 { top: 40%; right: 15%; width: 350px; height: 350px; background: radial-gradient(circle, rgba(100, 150, 220, 0.3), rgba(50, 100, 170, 0.1)); animation-delay: -15s; }
+        
+        @keyframes nebulaDrift {
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+            50% { transform: translate(40px, -30px) scale(1.1); opacity: 0.5; }
+        }
+        
+        .language-selector-bg {
+            position: fixed;
+            top: 28px;
+            right: 32px;
+            display: flex;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            padding: 10px 20px;
+            border-radius: 60px;
+            z-index: 100;
+        }
+        
+        .lang-btn-bg {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 50%;
+            width: 42px;
+            height: 42px;
+            opacity: 0.55;
+            transition: all 0.3s;
+        }
+        
+        .lang-btn-bg img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+        }
+        
+        .lang-btn-bg.active {
+            opacity: 1;
+            transform: scale(1.15);
+            background: rgba(255,255,255,0.2);
+        }
+        
         .container {
             text-align: center;
-            color: white;
-            max-width: 500px;
-            padding: 20px;
+            max-width: 650px;
+            width: 90%;
+            position: relative;
+            z-index: 10;
+            animation: fadeInUp 0.6s ease-out;
         }
-        h2 { margin-bottom: 20px; }
-        .spinner {
-            border: 5px solid rgba(255,255,255,0.3);
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.97);
+            border-radius: 48px;
+            padding: 52px 44px;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.35);
+        }
+        
+        .logo h1 {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #000000;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .logo p {
+            color: #6b6b6b;
+            font-size: 0.9rem;
+            border-bottom: 2px solid #e8e8e8;
+            display: inline-block;
+            padding-bottom: 4px;
+        }
+        
+        #status {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 28px 0;
+            color: #1a1a1a;
+        }
+        
+        .spinner-container {
+            margin: 32px auto;
+        }
+        
+        .modern-spinner {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .modern-spinner .circle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
-            border-top: 5px solid white;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+            border: 3px solid transparent;
+            border-top-color: #000000;
+            border-right-color: #4a4a4a;
+            animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .error-box {
-            background: rgba(255,0,0,0.2);
-            border: 1px solid rgba(255,0,0,0.5);
-            padding: 20px;
-            border-radius: 10px;
+        
+        .modern-spinner .circle2 {
+            width: 80%;
+            height: 80%;
+            top: 10%;
+            left: 10%;
+            position: absolute;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            border-bottom-color: #8a8a8a;
+            border-left-color: #2a2a2a;
+            animation: spin 0.6s linear infinite reverse;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e8e8e8;
+            border-radius: 4px;
+            margin: 24px auto 0;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #000000, #4a4a4a, #000000);
+            width: 0%;
+            animation: progress 2.5s ease-out forwards;
+        }
+        
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        
+        .status-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
             margin-top: 20px;
+            color: #5a5a5a;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #000000;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        .error-box {
+            background: rgba(220, 53, 69, 0.08);
+            border: 1px solid rgba(220, 53, 69, 0.3);
+            padding: 24px;
+            border-radius: 28px;
+            margin-top: 24px;
             text-align: left;
         }
-        .btn {
-            background: #667eea;
+        
+        .error-box strong {
+            color: #dc3545;
+            font-size: 1rem;
+            display: block;
+            margin-bottom: 8px;
+        }
+        
+        .error-message {
+            color: #4a4a4a;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+        }
+        
+        .error-details {
+            background: rgba(0,0,0,0.05);
+            padding: 12px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            margin: 16px 0;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        
+        .config-panel {
+            background: rgba(0,0,0,0.03);
+            padding: 16px;
+            border-radius: 16px;
+            margin: 16px 0;
+        }
+        
+        .config-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .config-input input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            min-width: 180px;
+        }
+        
+        .config-input button {
+            padding: 10px 20px;
+            background: #000000;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            border-radius: 12px;
             cursor: pointer;
+        }
+        
+        .btn-modern {
+            background: #000000;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
             margin-top: 10px;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 680px) {
+            .language-selector-bg { top: 16px; right: 16px; padding: 6px 12px; gap: 6px; }
+            .lang-btn-bg { width: 32px; height: 32px; }
+            .lang-btn-bg img { width: 24px; height: 24px; }
+            .card { margin: 20px; padding: 40px 24px; }
+            .logo h1 { font-size: 2.2rem; }
+            #status { font-size: 1.2rem; }
         }
     </style>
 </head>
 <body>
+    <div class="background">
+        <div class="gradient-main"></div>
+        <div class="wave-overlay"></div>
+        <div class="particle-system" id="particleSystem"></div>
+        <div class="star-field" id="starField"></div>
+        <div class="nebula nebula-1"></div>
+        <div class="nebula nebula-2"></div>
+        <div class="nebula nebula-3"></div>
+    </div>
+    
+    <div class="language-selector-bg">
+        <button class="lang-btn-bg active" onclick="setLanguage('es')">
+            <img src="https://em-content.zobj.net/source/apple/237/flag-for-spain_1f1ea-1f1f8.png" alt="ES">
+        </button>
+        <button class="lang-btn-bg" onclick="setLanguage('en')">
+            <img src="https://em-content.zobj.net/source/apple/237/flag-for-united-states_1f1fa-1f1f8.png" alt="EN">
+        </button>
+        <button class="lang-btn-bg" onclick="setLanguage('it')">
+            <img src="https://em-content.zobj.net/source/apple/237/flag-for-italy_1f1ee-1f1f9.png" alt="IT">
+        </button>
+        <button class="lang-btn-bg" onclick="setLanguage('de')">
+            <img src="https://em-content.zobj.net/source/apple/237/flag-for-germany_1f1e9-1f1ea.png" alt="DE">
+        </button>
+        <button class="lang-btn-bg" onclick="setLanguage('ru')">
+            <img src="https://em-content.zobj.net/source/apple/237/flag-for-russia_1f1f7-1f1fa.png" alt="RU">
+        </button>
+    </div>
+    
     <div class="container">
-        <h2 id="status">Iniciando sesión...</h2>
-        <div class="spinner" id="spinner"></div>
-        <div id="errorContainer" style="display: none;"></div>
+        <div class="card">
+            <div class="logo">
+                <h1>❄️ IceAuth</h1>
+                <p id="subtitle">Sistema de Autenticación</p>
+            </div>
+            
+            <div id="loadingContent">
+                <div id="status">Iniciando sesión...</div>
+                <div class="spinner-container">
+                    <div class="modern-spinner">
+                        <div class="circle"></div>
+                        <div class="circle2"></div>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="status-message">
+                    <div class="status-dot"></div>
+                    <span id="statusMessage">Verificando credenciales...</span>
+                </div>
+            </div>
+            
+            <div id="errorContainer" style="display: none;"></div>
+        </div>
     </div>
 
     <script>
-        const API_URL = 'https://kazzs-production.up.railway.app';
+        const DEFAULT_BACKEND = 'https://kazzs-production.up.railway.app';
+        
+        let currentLanguage = 'es';
+        let debugInfo = [];
+        
+        function addDebug(message, data = null) {
+            debugInfo.push({ time: new Date().toLocaleTimeString(), message, data });
+            console.log(`[DEBUG ${new Date().toLocaleTimeString()}] ${message}`, data || '');
+        }
+        
+        const translations = {
+            es: {
+                subtitle: 'Sistema de Autenticación',
+                title: 'Iniciando sesión...',
+                status_verifying: 'Verificando credenciales...',
+                status_connecting: 'Conectando con Discord...',
+                status_processing: 'Procesando autenticación...',
+                status_redirecting: 'Redirigiendo al dashboard...',
+                error_title: 'Error de autenticación',
+                back_btn: 'Volver al inicio',
+                retry_btn: 'Reintentar'
+            },
+            en: {
+                subtitle: 'Authentication System',
+                title: 'Signing in...',
+                status_verifying: 'Verifying credentials...',
+                status_connecting: 'Connecting to Discord...',
+                status_processing: 'Processing authentication...',
+                status_redirecting: 'Redirecting to dashboard...',
+                error_title: 'Authentication Error',
+                back_btn: 'Back to home',
+                retry_btn: 'Retry'
+            }
+        };
+        
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            document.querySelectorAll('.lang-btn-bg').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('onclick')?.includes(`'${lang}'`)) {
+                    btn.classList.add('active');
+                }
+            });
+            const t = translations[lang];
+            if (t && document.getElementById('errorContainer').style.display !== 'block') {
+                document.getElementById('subtitle').textContent = t.subtitle;
+                document.getElementById('status').textContent = t.title;
+            }
+        }
+        
+        function updateStatusMessage(messageKey) {
+            const t = translations[currentLanguage];
+            const msgElem = document.getElementById('statusMessage');
+            if (msgElem && t && t[messageKey]) {
+                msgElem.textContent = t[messageKey];
+            }
+        }
+        
+        function createParticles() {
+            const container = document.getElementById('particleSystem');
+            for (let i = 0; i < 50; i++) {
+                const p = document.createElement('div');
+                p.classList.add('particle');
+                const size = Math.random() * 5 + 2;
+                p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${Math.random()*12+6}s;animation-delay:${Math.random()*8}s`;
+                container.appendChild(p);
+            }
+        }
+        
+        function createStars() {
+            const container = document.getElementById('starField');
+            for (let i = 0; i < 80; i++) {
+                const s = document.createElement('div');
+                s.classList.add('star');
+                const size = Math.random() * 2 + 1;
+                s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;animation-delay:${Math.random()*5}s`;
+                container.appendChild(s);
+            }
+        }
+        
+        function showError(message, details = null, suggestions = null) {
+            const t = translations[currentLanguage];
+            document.getElementById('status').textContent = '❌ ' + (t?.error_title || 'Error');
+            document.getElementById('loadingContent').style.opacity = '0.5';
+            document.getElementById('errorContainer').style.display = 'block';
+            
+            const debugHtml = debugInfo.map(d => `[${d.time}] ${d.message}`).join('<br>');
+            const savedUrl = localStorage.getItem('customBackendUrl') || DEFAULT_BACKEND;
+            const savedEndpoint = localStorage.getItem('customEndpoint') || '/api/auth/discord';
+            
+            const suggestionsHtml = suggestions ? `
+                <div class="warning-box">
+                    <strong>💡 Sugerencias:</strong><br>${suggestions}
+                </div>
+            ` : '';
+            
+            document.getElementById('errorContainer').innerHTML = `
+                <div class="error-box">
+                    <strong>⚠️ ${t?.error_title || 'Error'}</strong>
+                    <div class="error-message">${escapeHtml(message)}</div>
+                    ${details ? `<div class="error-details"><strong>Detalles:</strong><br>${escapeHtml(details)}</div>` : ''}
+                    ${suggestionsHtml}
+                    <div class="error-details" style="font-size:0.7rem; max-height:200px; overflow-y:auto;">
+                        <strong>🔍 Registro:</strong><br>${debugHtml || 'No hay datos'}
+                    </div>
+                    <div class="config-panel">
+                        <strong>⚙️ Configuración del backend:</strong>
+                        <div class="config-input">
+                            <input type="text" id="backendUrlInput" value="${savedUrl}" placeholder="URL del backend">
+                            <input type="text" id="endpointInput" value="${savedEndpoint}" placeholder="Ej: /api/auth/discord">
+                        </div>
+                        <div class="config-input">
+                            <button onclick="testConnection()">🔍 Probar conexión</button>
+                            <button onclick="saveAndRetry()">💾 Guardar y reintentar</button>
+                        </div>
+                        <div id="testResult" style="margin-top: 10px; font-size: 0.8rem;"></div>
+                    </div>
+                    <button class="btn-modern" onclick="window.location.href='/'">${t?.back_btn || 'Volver al inicio'}</button>
+                    <button class="btn-modern btn-secondary" onclick="location.reload()">${t?.retry_btn || 'Reintentar'}</button>
+                </div>
+            `;
+        }
+        
+        async function testConnection() {
+            const url = document.getElementById('backendUrlInput').value;
+            const endpoint = document.getElementById('endpointInput').value;
+            const testUrl = `${url}${endpoint}`;
+            const resultDiv = document.getElementById('testResult');
+            
+            resultDiv.innerHTML = '🔄 Probando...';
+            
+            try {
+                const response = await fetch(testUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: 'test' })
+                });
+                const text = await response.text();
+                
+                if (response.status === 429) {
+                    resultDiv.innerHTML = '⚠️ Error 429: Discord rate limit. Espera unos minutos antes de reintentar.';
+                    resultDiv.style.color = '#ffc107';
+                } else if (response.status === 500) {
+                    resultDiv.innerHTML = '⚠️ Error 500 en el servidor. Revisa los logs del backend.';
+                    resultDiv.style.color = '#dc3545';
+                } else if (response.status === 404) {
+                    resultDiv.innerHTML = '❌ Endpoint no encontrado (404). Prueba con /auth/discord o /callback';
+                    resultDiv.style.color = '#dc3545';
+                } else {
+                    resultDiv.innerHTML = `✅ Respuesta (${response.status}). El servidor está funcionando.`;
+                    resultDiv.style.color = '#28a745';
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `❌ Error: ${err.message}`;
+                resultDiv.style.color = '#dc3545';
+            }
+        }
+        
+        function saveAndRetry() {
+            const newUrl = document.getElementById('backendUrlInput').value;
+            const newEndpoint = document.getElementById('endpointInput').value;
+            localStorage.setItem('customBackendUrl', newUrl);
+            localStorage.setItem('customEndpoint', newEndpoint);
+            window.location.reload();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
         
         async function handleCallback() {
+            addDebug('🚀 Iniciando callback');
+            
+            setTimeout(() => updateStatusMessage('status_connecting'), 500);
+            setTimeout(() => updateStatusMessage('status_processing'), 1000);
+            setTimeout(() => updateStatusMessage('status_redirecting'), 2000);
+            
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
             const error = urlParams.get('error');
             
-            // Obtener el programa seleccionado
+            addDebug(`Código recibido: ${code ? '✅ Sí' : '❌ No'}`);
+            
             const selectedProgram = sessionStorage.getItem('selectedProgram') || 'temp';
-
+            const userLanguage = sessionStorage.getItem('userLanguage') || 'es';
+            
+            if (userLanguage && translations[userLanguage]) setLanguage(userLanguage);
+            
             if (error) {
-                showError(`Error de Discord: ${error}`);
+                showError(`Error de Discord: ${error}`, null, 'Revisa la configuración de tu aplicación en Discord Developer Portal.');
                 return;
             }
-
+            
             if (!code) {
-                showError('No se recibió código de autorización');
-                setTimeout(() => window.location.href = '/', 3000);
+                showError('No se recibió código', null, 'Asegúrate de haber iniciado sesión correctamente en Discord.');
                 return;
             }
-
+            
+            let backendUrl = localStorage.getItem('customBackendUrl') || DEFAULT_BACKEND;
+            let customEndpoint = localStorage.getItem('customEndpoint') || '/api/auth/discord';
+            
+            addDebug(`Endpoint: ${backendUrl}${customEndpoint}`);
+            
             try {
-                const response = await fetch(`${API_URL}/api/auth/discord`, {
+                const response = await fetch(`${backendUrl}${customEndpoint}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code })
                 });
-
+                
                 const data = await response.json();
-
-                if (data.success) {
-                    // Guardar programa en localStorage
-                    localStorage.setItem('selectedProgram', selectedProgram);
+                addDebug(`Respuesta: ${response.status} - ${JSON.stringify(data).substring(0, 200)}`);
+                
+                if (response.ok && data.success) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
+                    localStorage.setItem('selectedProgram', selectedProgram);
                     window.location.href = '/dashboard';
                 } else {
-                    showError(data.error || 'Error desconocido');
+                    let sugerencias = '';
+                    if (data.details?.includes('429')) {
+                        sugerencias = '⚠️ Discord está bloqueando temporalmente las solicitudes (rate limit). Espera 5-10 minutos y vuelve a intentar. También verifica que tu Client ID y Client Secret sean correctos en el backend.';
+                    } else {
+                        sugerencias = '1. Verifica que el Client ID y Client Secret en tu backend sean correctos<br>2. Asegúrate de que el Redirect URI en Discord Developer Portal sea: ' + window.location.origin + '/callback<br>3. Espera unos minutos si hay demasiados intentos';
+                    }
+                    showError(data.error || 'Error en autenticación', data.details, sugerencias);
                 }
             } catch (err) {
-                showError(`Error de conexión: ${err.message}`);
+                showError(err.message, null, 'Revisa que el backend esté funcionando y el endpoint sea correcto.');
             }
         }
-
-        function showError(message) {
-            document.getElementById('status').textContent = '❌ Error';
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('errorContainer').style.display = 'block';
-            document.getElementById('errorContainer').innerHTML = `
-                <div class="error-box">
-                    <strong>Error:</strong> ${message}<br><br>
-                    <button class="btn" onclick="window.location.href='/'">Volver al inicio</button>
-                </div>
-            `;
-        }
-
-        handleCallback();
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            createParticles();
+            createStars();
+            handleCallback();
+        });
     </script>
 </body>
 </html>
